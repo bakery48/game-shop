@@ -15,7 +15,8 @@
     reserve: 80000,        // 家賃に加えて残しておきたい運転資金
     slotBuffer: 3,         // 買い取り用に空けておく枠
     keepFromWeek: 30,      // この週以降は単品を手放さない
-    protectFromWeek: 38,     // この週以降は全タイトルの最後の1本を非売品にする
+    orderFromWeek: 44,       // この週から取り寄せでコレクションの穴を埋める
+    protectFromWeek: 20,     // この週以降は全タイトルの最後の1本を非売品にする
     protectRareFromWeek: 12, // レアはこの週から確保する
     rareSellUntil: 38,     // レアを売っていいのはこの週まで
     singleBidRatio: 0.85,  // 単品入札の入札額（基準相場比）
@@ -77,9 +78,9 @@
       if (!guard) willing.push(item);
     }
     willing.sort((a, b) => E.demandOf(st, b) * E.priceOf(st, b) - E.demandOf(st, a) * E.priceOf(st, a));
+    // 非売品は保管に回し、陳列枠は売り物だけで埋める
     const show = new Set(willing.slice(0, cfg.displaySlots).map(i => i.uid));
-    // 非売品も棚には置く（枠は食う）が、売れはしない
-    for (const item of st.inv) item.display = show.has(item.uid) || item.protect;
+    for (const item of st.inv) item.display = show.has(item.uid);
   }
 
   /** 整理で卸す在庫を選ぶ */
@@ -133,7 +134,17 @@
       if (uids.length) return { key: 'organize', params: { wholesale: uids } };
     }
 
-    // 2. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
+    // 2. 取り寄せ: 図鑑に載っているのに手元に無いものを、安い順に埋めていく。
+    //    仕様書 3 節の「最後の数本を狙い撃つ」局面はここで作られる
+    if (st.week >= TUNING.orderFromWeek && slots > 0) {
+      const want = E.orderable(st)
+        .map(t => ({ t, cost: E.orderCost(st, t) }))
+        .filter(x => st.cash - x.cost >= floor)
+        .sort((a, b) => a.cost - b.cost);
+      if (want.length) return { key: 'order', params: { titleId: want[0].t.id } };
+    }
+
+    // 3. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
     //    まとめ図鑑を埋める本数はここでしか稼げないため、中盤以降はまとめ買いより優先する
     const single = o.single ? st.byId.get(o.single.titleId) : null;
     const singleBid = single ? Math.round(single.base * TUNING.singleBidRatio) : 0;
@@ -145,29 +156,29 @@
       return { key: 'single', params: { bid: singleBid } };
     }
 
-    // 3. まとめ買い＝収益の本体。枠に入りきらない分は業者に流れるので資金だけ見る
+    // 4. まとめ買い＝収益の本体。枠に入りきらない分は業者に流れるので資金だけ見る
     if (o.bulk && st.cash - o.bulk.cost >= floor && weeksLeft > 2
         && slots >= TUNING.bulkMinSlots) {
       return { key: 'bulk', params: {} };
     }
 
-    // 4. 棚が詰まってきたら拡張（150本を同時所持するには必須）
+    // 5. 棚が詰まってきたら拡張（150本を同時所持するには必須）
     const ex = cfg.expand;
     if (cfg.shelfSlots < ex.max && slots < TUNING.expandWhenSlotsBelow
         && st.cash - ex.cost >= cfg.rent + TUNING.reserve && weeksLeft > 4) {
       return { key: 'expand', params: {} };
     }
 
-    // 5. 序盤の単品入札（資金に余裕があるときだけ）
+    // 6. 序盤の単品入札（資金に余裕があるときだけ）
     if (singleWanted) return { key: 'single', params: { bid: singleBid } };
 
-    // 5. 処分品引取: 枠が余っているとき。ただ働きでも在庫は増える
+    // 7. 処分品引取: 枠が余っているとき。ただ働きでも在庫は増える
     if (o.junk && slots >= TUNING.junkMinSlots && weeksLeft > 2
         && (st.cash - o.junk.cost >= floor || o.junk.cost === 0)) {
       return { key: 'junk', params: {} };
     }
 
-    // 6. それ以外は整理（枠を空けて次の仕入れに備える）
+    // 8. それ以外は整理（枠を空けて次の仕入れに備える）
     const uids = pickDump(st);
     if (uids.length) return { key: 'organize', params: { wholesale: uids } };
     return { key: 'rest', params: {} };

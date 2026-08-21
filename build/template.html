@@ -92,6 +92,12 @@ input[type=number] {
   border:1px solid var(--rule); border-radius:0;
 }
 input[type=checkbox] { accent-color:var(--accent); }
+select {
+  font:13px/1.4 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
+  padding:4px 6px; background:var(--panel); color:var(--ink);
+  border:1px solid var(--rule); border-radius:0; max-width:100%;
+}
+select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 label { display:inline-flex; gap:5px; align-items:center; font-size:13px; }
 
 /* ── 客・行動のカード ────────────────────────────────────── */

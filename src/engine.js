@@ -75,11 +75,18 @@
     junk:   { cost: [0, 5000], freeChance: 0.5, items: [10, 20],
               mix: { junk: 0.72, common: 0.26, mid: 0.02, rare: 0, ultra: 0 } },
     bulk:   { items: [30, 50], priceRatio: [0.20, 0.45], cap: [3000, 90000],
-              mix: { junk: 0.46, common: 0.40, mid: 0.11, rare: 0.028, ultra: 0.002 } },
+              mix: { junk: 0.44, common: 0.38, mid: 0.12, rare: 0.055, ultra: 0.005 } },
     single: { rivalRatio: [0.50, 0.95], askRatio: [0.35, 0.50],
               tierWeights: { mid: 0.18, rare: 0.70, ultra: 0.12 },
               ultraLateBonus: 0.35,   // 週が進むほど激レアが出品されやすい
               ownedPenalty: 0.15 },   // 所持済みは出品されにくい（＝欲しい物が回ってくる）
+
+    /**
+     * 取り寄せ（仕様書 3 節「46〜50週: 最後の数本を狙い撃つ」に対応する手段）。
+     * 図鑑に載っている＝一度は手にしたソフトを、割増料金で指名して仕入れる。
+     * 終盤に余った資金の受け皿も兼ねる。
+     */
+    order: { premium: 1.6, fromWeek: 1 },
 
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
@@ -148,6 +155,14 @@
   }
 
   const ownedIds = st => new Set(st.inv.filter(i => !i.junk).map(i => i.titleId));
+  /** 取り寄せ料金（相場＋割増） */
+  const orderCost = (st, t) => Math.round(t.base * st.cfg.order.premium / 100) * 100;
+  /** 取り寄せられるソフト＝登録済みだが今は持っていないもの */
+  function orderable(st) {
+    if (st.week < st.cfg.order.fromWeek) return [];
+    const owned = ownedIds(st);
+    return st.catalog.filter(t => st.registered.has(t.id) && !owned.has(t.id));
+  }
   const displayed = st => st.inv.filter(i => i.display && !i.junk);
   /** 実際に売れる在庫（陳列中かつ非売品でない） */
   const forSale = st => st.inv.filter(i => i.display && !i.junk && !i.protect);
@@ -464,6 +479,22 @@
       for (const uid of params.store || []) setDisplay(st, uid, false);
       for (const uid of params.markdown || []) setMarkdown(st, uid, true);
 
+    } else if (key === 'order') {
+      const t = st.byId.get(params.titleId);
+      if (!t) return { ok: false, reason: 'notitle' };
+      if (!st.registered.has(t.id)) return { ok: false, reason: 'unknown' };   // 知らない物は頼めない
+      if (ownedIds(st).has(t.id)) return { ok: false, reason: 'owned' };
+      if (freeSlots(st) <= 0) return { ok: false, reason: 'slots' };
+      const cost = orderCost(st, t);
+      if (st.cash < cost) return { ok: false, reason: 'cash' };
+      st.cash -= cost;
+      st.totals.purchases += cost;
+      st.totals.orderCount++;
+      res.spent = cost;
+      res.gained.push(t.id);
+      addItem(st, t);
+      log(st, 'order', `取り寄せ: 「${t.name}」が届いた`, -cost);
+
     } else if (key === 'expand') {
       const ex = st.cfg.expand;
       if (st.cfg.shelfSlots >= ex.max) return { ok: false, reason: 'max' };
@@ -497,12 +528,17 @@
   function tryUltraEvent(st) {
     const u = st.cfg.ultra;
     if (u.source !== 'event' && u.source !== 'both') return;
-    if (st.ultraEvents >= u.maxEvents) return;
-    if (st.week < u.eventFromWeek) return;
-    if ((st.week - u.eventFromWeek) % u.eventEveryWeeks !== 0) return;
-    if (freeSlots(st) <= 0) return;                       // 棚が満杯なら受け取れない
+    // 予定週になったら「譲ってもらえる約束」が1件たまる
+    if (st.ultraEvents + st.ultraDue < u.maxEvents
+        && st.week >= u.eventFromWeek
+        && (st.week - u.eventFromWeek) % u.eventEveryWeeks === 0) {
+      st.ultraDue++;
+    }
+    if (st.ultraDue <= 0) return;
+    if (freeSlots(st) <= 0) return;        // 棚が空くまで持ち越す（約束は消えない）
     const t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
     if (!t) return;
+    st.ultraDue--;
     st.ultraEvents++;
     addItem(st, t);
     log(st, 'event', `常連客からの譲渡: 「${t.name}」を手に入れた`, 0);
@@ -631,8 +667,8 @@
       queue: [], current: null, offers: null,
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
-      ultraEvents: 0, lost: {},
-      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0 },
+      ultraEvents: 0, ultraDue: 0, lost: {},
+      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0 },
     };
 
     st.catalog = Catalog.build(cfg.tiers, cfg.catalogSize, cfg.catalogSeed);
@@ -654,7 +690,7 @@
     BALANCE, HALF_LABEL, createGame,
     answer, doAction, endTurn,
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
-    freeSlots, freeDisplay, countOf, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
+    freeSlots, freeDisplay, countOf, orderCost, orderable, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
     forSale,
   };
 });

@@ -92,6 +92,12 @@ input[type=number] {
   border:1px solid var(--rule); border-radius:0;
 }
 input[type=checkbox] { accent-color:var(--accent); }
+select {
+  font:13px/1.4 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
+  padding:4px 6px; background:var(--panel); color:var(--ink);
+  border:1px solid var(--rule); border-radius:0; max-width:100%;
+}
+select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 label { display:inline-flex; gap:5px; align-items:center; font-size:13px; }
 
 /* ── 客・行動のカード ────────────────────────────────────── */
@@ -469,11 +475,18 @@ pre {
     junk:   { cost: [0, 5000], freeChance: 0.5, items: [10, 20],
               mix: { junk: 0.72, common: 0.26, mid: 0.02, rare: 0, ultra: 0 } },
     bulk:   { items: [30, 50], priceRatio: [0.20, 0.45], cap: [3000, 90000],
-              mix: { junk: 0.46, common: 0.40, mid: 0.11, rare: 0.028, ultra: 0.002 } },
+              mix: { junk: 0.44, common: 0.38, mid: 0.12, rare: 0.055, ultra: 0.005 } },
     single: { rivalRatio: [0.50, 0.95], askRatio: [0.35, 0.50],
               tierWeights: { mid: 0.18, rare: 0.70, ultra: 0.12 },
               ultraLateBonus: 0.35,   // 週が進むほど激レアが出品されやすい
               ownedPenalty: 0.15 },   // 所持済みは出品されにくい（＝欲しい物が回ってくる）
+
+    /**
+     * 取り寄せ（仕様書 3 節「46〜50週: 最後の数本を狙い撃つ」に対応する手段）。
+     * 図鑑に載っている＝一度は手にしたソフトを、割増料金で指名して仕入れる。
+     * 終盤に余った資金の受け皿も兼ねる。
+     */
+    order: { premium: 1.6, fromWeek: 1 },
 
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
@@ -542,6 +555,14 @@ pre {
   }
 
   const ownedIds = st => new Set(st.inv.filter(i => !i.junk).map(i => i.titleId));
+  /** 取り寄せ料金（相場＋割増） */
+  const orderCost = (st, t) => Math.round(t.base * st.cfg.order.premium / 100) * 100;
+  /** 取り寄せられるソフト＝登録済みだが今は持っていないもの */
+  function orderable(st) {
+    if (st.week < st.cfg.order.fromWeek) return [];
+    const owned = ownedIds(st);
+    return st.catalog.filter(t => st.registered.has(t.id) && !owned.has(t.id));
+  }
   const displayed = st => st.inv.filter(i => i.display && !i.junk);
   /** 実際に売れる在庫（陳列中かつ非売品でない） */
   const forSale = st => st.inv.filter(i => i.display && !i.junk && !i.protect);
@@ -858,6 +879,22 @@ pre {
       for (const uid of params.store || []) setDisplay(st, uid, false);
       for (const uid of params.markdown || []) setMarkdown(st, uid, true);
 
+    } else if (key === 'order') {
+      const t = st.byId.get(params.titleId);
+      if (!t) return { ok: false, reason: 'notitle' };
+      if (!st.registered.has(t.id)) return { ok: false, reason: 'unknown' };   // 知らない物は頼めない
+      if (ownedIds(st).has(t.id)) return { ok: false, reason: 'owned' };
+      if (freeSlots(st) <= 0) return { ok: false, reason: 'slots' };
+      const cost = orderCost(st, t);
+      if (st.cash < cost) return { ok: false, reason: 'cash' };
+      st.cash -= cost;
+      st.totals.purchases += cost;
+      st.totals.orderCount++;
+      res.spent = cost;
+      res.gained.push(t.id);
+      addItem(st, t);
+      log(st, 'order', `取り寄せ: 「${t.name}」が届いた`, -cost);
+
     } else if (key === 'expand') {
       const ex = st.cfg.expand;
       if (st.cfg.shelfSlots >= ex.max) return { ok: false, reason: 'max' };
@@ -891,12 +928,17 @@ pre {
   function tryUltraEvent(st) {
     const u = st.cfg.ultra;
     if (u.source !== 'event' && u.source !== 'both') return;
-    if (st.ultraEvents >= u.maxEvents) return;
-    if (st.week < u.eventFromWeek) return;
-    if ((st.week - u.eventFromWeek) % u.eventEveryWeeks !== 0) return;
-    if (freeSlots(st) <= 0) return;                       // 棚が満杯なら受け取れない
+    // 予定週になったら「譲ってもらえる約束」が1件たまる
+    if (st.ultraEvents + st.ultraDue < u.maxEvents
+        && st.week >= u.eventFromWeek
+        && (st.week - u.eventFromWeek) % u.eventEveryWeeks === 0) {
+      st.ultraDue++;
+    }
+    if (st.ultraDue <= 0) return;
+    if (freeSlots(st) <= 0) return;        // 棚が空くまで持ち越す（約束は消えない）
     const t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
     if (!t) return;
+    st.ultraDue--;
     st.ultraEvents++;
     addItem(st, t);
     log(st, 'event', `常連客からの譲渡: 「${t.name}」を手に入れた`, 0);
@@ -1025,8 +1067,8 @@ pre {
       queue: [], current: null, offers: null,
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
-      ultraEvents: 0, lost: {},
-      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0 },
+      ultraEvents: 0, ultraDue: 0, lost: {},
+      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0 },
     };
 
     st.catalog = Catalog.build(cfg.tiers, cfg.catalogSize, cfg.catalogSeed);
@@ -1048,7 +1090,7 @@ pre {
     BALANCE, HALF_LABEL, createGame,
     answer, doAction, endTurn,
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
-    freeSlots, freeDisplay, countOf, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
+    freeSlots, freeDisplay, countOf, orderCost, orderable, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
     forSale,
   };
 });
@@ -1072,7 +1114,8 @@ pre {
     reserve: 80000,        // 家賃に加えて残しておきたい運転資金
     slotBuffer: 3,         // 買い取り用に空けておく枠
     keepFromWeek: 30,      // この週以降は単品を手放さない
-    protectFromWeek: 38,     // この週以降は全タイトルの最後の1本を非売品にする
+    orderFromWeek: 44,       // この週から取り寄せでコレクションの穴を埋める
+    protectFromWeek: 20,     // この週以降は全タイトルの最後の1本を非売品にする
     protectRareFromWeek: 12, // レアはこの週から確保する
     rareSellUntil: 38,     // レアを売っていいのはこの週まで
     singleBidRatio: 0.85,  // 単品入札の入札額（基準相場比）
@@ -1134,9 +1177,9 @@ pre {
       if (!guard) willing.push(item);
     }
     willing.sort((a, b) => E.demandOf(st, b) * E.priceOf(st, b) - E.demandOf(st, a) * E.priceOf(st, a));
+    // 非売品は保管に回し、陳列枠は売り物だけで埋める
     const show = new Set(willing.slice(0, cfg.displaySlots).map(i => i.uid));
-    // 非売品も棚には置く（枠は食う）が、売れはしない
-    for (const item of st.inv) item.display = show.has(item.uid) || item.protect;
+    for (const item of st.inv) item.display = show.has(item.uid);
   }
 
   /** 整理で卸す在庫を選ぶ */
@@ -1190,7 +1233,17 @@ pre {
       if (uids.length) return { key: 'organize', params: { wholesale: uids } };
     }
 
-    // 2. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
+    // 2. 取り寄せ: 図鑑に載っているのに手元に無いものを、安い順に埋めていく。
+    //    仕様書 3 節の「最後の数本を狙い撃つ」局面はここで作られる
+    if (st.week >= TUNING.orderFromWeek && slots > 0) {
+      const want = E.orderable(st)
+        .map(t => ({ t, cost: E.orderCost(st, t) }))
+        .filter(x => st.cash - x.cost >= floor)
+        .sort((a, b) => a.cost - b.cost);
+      if (want.length) return { key: 'order', params: { titleId: want[0].t.id } };
+    }
+
+    // 3. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
     //    まとめ図鑑を埋める本数はここでしか稼げないため、中盤以降はまとめ買いより優先する
     const single = o.single ? st.byId.get(o.single.titleId) : null;
     const singleBid = single ? Math.round(single.base * TUNING.singleBidRatio) : 0;
@@ -1202,29 +1255,29 @@ pre {
       return { key: 'single', params: { bid: singleBid } };
     }
 
-    // 3. まとめ買い＝収益の本体。枠に入りきらない分は業者に流れるので資金だけ見る
+    // 4. まとめ買い＝収益の本体。枠に入りきらない分は業者に流れるので資金だけ見る
     if (o.bulk && st.cash - o.bulk.cost >= floor && weeksLeft > 2
         && slots >= TUNING.bulkMinSlots) {
       return { key: 'bulk', params: {} };
     }
 
-    // 4. 棚が詰まってきたら拡張（150本を同時所持するには必須）
+    // 5. 棚が詰まってきたら拡張（150本を同時所持するには必須）
     const ex = cfg.expand;
     if (cfg.shelfSlots < ex.max && slots < TUNING.expandWhenSlotsBelow
         && st.cash - ex.cost >= cfg.rent + TUNING.reserve && weeksLeft > 4) {
       return { key: 'expand', params: {} };
     }
 
-    // 5. 序盤の単品入札（資金に余裕があるときだけ）
+    // 6. 序盤の単品入札（資金に余裕があるときだけ）
     if (singleWanted) return { key: 'single', params: { bid: singleBid } };
 
-    // 5. 処分品引取: 枠が余っているとき。ただ働きでも在庫は増える
+    // 7. 処分品引取: 枠が余っているとき。ただ働きでも在庫は増える
     if (o.junk && slots >= TUNING.junkMinSlots && weeksLeft > 2
         && (st.cash - o.junk.cost >= floor || o.junk.cost === 0)) {
       return { key: 'junk', params: {} };
     }
 
-    // 6. それ以外は整理（枠を空けて次の仕入れに備える）
+    // 8. それ以外は整理（枠を空けて次の仕入れに備える）
     const uids = pickDump(st);
     if (uids.length) return { key: 'organize', params: { wholesale: uids } };
     return { key: 'rest', params: {} };
@@ -1411,6 +1464,32 @@ pre {
       box.appendChild(card);
     }
 
+    // 取り寄せ — 図鑑に載っているのに手元に無いものを指名して仕入れる
+    const want = E.orderable(st);
+    if (want.length) {
+      const card = el('div', 'card');
+      card.appendChild(el('div', 'who', '取り寄せを頼む'));
+      card.appendChild(el('div', null, `図鑑に載っているのに手元に無いソフト ${want.length}本から指名できます`));
+      const sel = document.createElement('select');
+      want.slice().sort((a, b) => E.orderCost(st, a) - E.orderCost(st, b)).forEach(t => {
+        const op = document.createElement('option');
+        op.value = t.id;
+        op.textContent = `${t.name}（${t.tierLabel}） — ${yen(E.orderCost(st, t))}`;
+        sel.appendChild(op);
+      });
+      card.appendChild(el('div', 'sub',
+        `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`));
+      const row = el('div', 'row');
+      row.appendChild(sel);
+      row.appendChild(btn('頼む', () => {
+        const r = E.doAction(st, 'order', { titleId: Number(sel.value) });
+        if (!r.ok) alert({ cash: '資金が足りません', slots: '棚枠が満杯です' }[r.reason] || '取り寄せできません');
+        render();
+      }, true));
+      card.appendChild(row);
+      box.appendChild(card);
+    }
+
     mk('処分品引取',
       `雑多な箱 ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
       '引き取る', () => { E.doAction(st, 'junk', {}); render(); },
@@ -1562,6 +1641,7 @@ pre {
   function render() {
     renderStat(); renderPhase(); renderInv(); renderDex(); renderLog();
   }
+  window.renderUI = render;   // デバッグ用
 
   // ---------------- 操作 ----------------
   function newGame() {

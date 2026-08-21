@@ -152,6 +152,32 @@
       box.appendChild(card);
     }
 
+    // 取り寄せ — 図鑑に載っているのに手元に無いものを指名して仕入れる
+    const want = E.orderable(st);
+    if (want.length) {
+      const card = el('div', 'card');
+      card.appendChild(el('div', 'who', '取り寄せを頼む'));
+      card.appendChild(el('div', null, `図鑑に載っているのに手元に無いソフト ${want.length}本から指名できます`));
+      const sel = document.createElement('select');
+      want.slice().sort((a, b) => E.orderCost(st, a) - E.orderCost(st, b)).forEach(t => {
+        const op = document.createElement('option');
+        op.value = t.id;
+        op.textContent = `${t.name}（${t.tierLabel}） — ${yen(E.orderCost(st, t))}`;
+        sel.appendChild(op);
+      });
+      card.appendChild(el('div', 'sub',
+        `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`));
+      const row = el('div', 'row');
+      row.appendChild(sel);
+      row.appendChild(btn('頼む', () => {
+        const r = E.doAction(st, 'order', { titleId: Number(sel.value) });
+        if (!r.ok) alert({ cash: '資金が足りません', slots: '棚枠が満杯です' }[r.reason] || '取り寄せできません');
+        render();
+      }, true));
+      card.appendChild(row);
+      box.appendChild(card);
+    }
+
     mk('処分品引取',
       `雑多な箱 ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
       '引き取る', () => { E.doAction(st, 'junk', {}); render(); },
@@ -303,6 +329,7 @@
   function render() {
     renderStat(); renderPhase(); renderInv(); renderDex(); renderLog();
   }
+  window.renderUI = render;   // デバッグ用
 
   // ---------------- 操作 ----------------
   function newGame() {
