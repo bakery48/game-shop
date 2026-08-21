@@ -99,6 +99,14 @@
      */
     order: { premium: 1.6, fromWeek: 1 },
 
+    /**
+     * 周回引き継ぎ（仕様書 12 節の未決定事項）。
+     * 引き継ぐのは「この世界に何があるかの知識」＝図鑑の登録だけ。
+     * 資金も在庫も持ち越さないので、店の経営そのものは毎周ゼロから始まる。
+     * 登録済みのソフトは最初から取り寄せで狙えるため、完全クリアが現実的になる。
+     */
+    carryOver: { registered: true, cash: false, cashRatio: 0.2, slots: false },
+
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
     junkValue: 50,          // ガラクタの処分単価
@@ -718,7 +726,23 @@
       const t = pickTitle(st, tier, { byDemand: true });
       addItem(st, t, { display: true });
     }
-    log(st, 'start', `開店。資金${cfg.startCash.toLocaleString()}円、在庫${st.inv.length}点。`, 0);
+    // 前周からの引き継ぎ（opts.previous は carryFrom() の戻り値）
+    const prev = opts.previous;
+    if (prev) {
+      const co = cfg.carryOver;
+      if (co.registered && prev.registered) {
+        for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
+      }
+      if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
+      if (co.slots && prev.shelfSlots) {
+        st.cfg = cfg = Object.assign({}, cfg, { shelfSlots: Math.max(cfg.shelfSlots, prev.shelfSlots) });
+      }
+      st.carriedOver = true;
+    }
+    st.startRegistered = st.registered.size;
+    st.run = prev ? (prev.run || 1) + 1 : 1;
+    log(st, 'start', `開店。資金${st.cash.toLocaleString()}円、在庫${st.inv.length}点。`
+      + (prev ? `（前回の記録から図鑑${st.registered.size}本を引き継いだ）` : ''), 0);
 
     startTurn(st);
     return st;
@@ -728,7 +752,8 @@
     BALANCE, HALF_LABEL, createGame,
     answer, doAction, endTurn,
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
-    freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
+    freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
+    carryFrom: st => ({ registered: Array.from(st.registered), cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale,
   };
 });

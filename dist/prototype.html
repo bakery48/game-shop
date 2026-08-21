@@ -162,6 +162,7 @@ pre {
           <button id="btnWeek">1週自動</button>
           <button id="btnAll">最後まで自動</button>
           <button id="btnNew">新しく始める</button>
+          <button id="btnCarry">次の周へ（図鑑を引き継ぐ）</button>
           <label class="sub">seed <input type="number" id="seed" value="1"></label>
           <button id="btnSim">シミュレーション100回</button>
         </div>
@@ -498,6 +499,14 @@ pre {
      * 終盤に余った資金の受け皿も兼ねる。
      */
     order: { premium: 1.6, fromWeek: 1 },
+
+    /**
+     * 周回引き継ぎ（仕様書 12 節の未決定事項）。
+     * 引き継ぐのは「この世界に何があるかの知識」＝図鑑の登録だけ。
+     * 資金も在庫も持ち越さないので、店の経営そのものは毎周ゼロから始まる。
+     * 登録済みのソフトは最初から取り寄せで狙えるため、完全クリアが現実的になる。
+     */
+    carryOver: { registered: true, cash: false, cashRatio: 0.2, slots: false },
 
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
@@ -1118,7 +1127,23 @@ pre {
       const t = pickTitle(st, tier, { byDemand: true });
       addItem(st, t, { display: true });
     }
-    log(st, 'start', `開店。資金${cfg.startCash.toLocaleString()}円、在庫${st.inv.length}点。`, 0);
+    // 前周からの引き継ぎ（opts.previous は carryFrom() の戻り値）
+    const prev = opts.previous;
+    if (prev) {
+      const co = cfg.carryOver;
+      if (co.registered && prev.registered) {
+        for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
+      }
+      if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
+      if (co.slots && prev.shelfSlots) {
+        st.cfg = cfg = Object.assign({}, cfg, { shelfSlots: Math.max(cfg.shelfSlots, prev.shelfSlots) });
+      }
+      st.carriedOver = true;
+    }
+    st.startRegistered = st.registered.size;
+    st.run = prev ? (prev.run || 1) + 1 : 1;
+    log(st, 'start', `開店。資金${st.cash.toLocaleString()}円、在庫${st.inv.length}点。`
+      + (prev ? `（前回の記録から図鑑${st.registered.size}本を引き継いだ）` : ''), 0);
 
     startTurn(st);
     return st;
@@ -1128,7 +1153,8 @@ pre {
     BALANCE, HALF_LABEL, createGame,
     answer, doAction, endTurn,
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
-    freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
+    freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
+    carryFrom: st => ({ registered: Array.from(st.registered), cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale,
   };
 });
@@ -1378,6 +1404,7 @@ pre {
       d.appendChild(el('b', cls, value));
       $('stat').appendChild(d);
     };
+    add('周', `${st.run || 1}周目` + (st.startRegistered ? `（図鑑${st.startRegistered}本から）` : ''));
     add('週', `${s.week} / ${st.cfg.totalWeeks}`);
     add('ターン', E.HALF_LABEL[s.half]);
     add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
@@ -1402,6 +1429,11 @@ pre {
       const s = st.result || E.stats(st);
       c.appendChild(el('div', null,
         `${s.week - 1}週まで営業 / 登録 ${s.registered}本 / 所持 ${s.owned}本 / 残高 ${yen(s.cash)}`));
+      if (st.cfg.carryOver.registered) {
+        c.appendChild(el('div', 'sub',
+          `「次の周へ」で図鑑の登録${s.registered}本を引き継げます（資金と在庫は引き継ぎません）。`
+          + '登録済みのソフトは最初から取り寄せで狙えます'));
+      }
       box.appendChild(c);
       return;
     }
@@ -1700,14 +1732,22 @@ pre {
   window.renderUI = render;   // デバッグ用
 
   // ---------------- 操作 ----------------
-  function newGame() {
-    st = E.createGame({ seed: Number($('seed').value) || 1 });
+  let lastRun = null;   // 前周の記録（図鑑の引き継ぎ用）
+
+  function newGame(previous) {
+    st = E.createGame({ seed: Number($('seed').value) || 1, previous: previous || undefined });
     selected.clear();
     window.st = st;
     render();
   }
 
-  $('btnNew').onclick = newGame;
+  $('btnNew').onclick = () => { lastRun = null; newGame(); };
+  $('btnCarry').onclick = () => {
+    if (!st.ended) { alert('50週を終えてから引き継げます'); return; }
+    lastRun = E.carryFrom(st);
+    $('seed').value = (Number($('seed').value) || 1) + 1;   // 次の周は別の展開に
+    newGame(lastRun);
+  };
   $('btnTurn').onclick = () => { if (!st.ended) P.playTurn(st); render(); };
   $('btnWeek').onclick = () => { const w = st.week; while (!st.ended && st.week === w) P.playTurn(st); render(); };
   $('btnAll').onclick = () => { P.playAll(st); render(); };

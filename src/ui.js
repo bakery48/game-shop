@@ -26,6 +26,7 @@
       d.appendChild(el('b', cls, value));
       $('stat').appendChild(d);
     };
+    add('周', `${st.run || 1}周目` + (st.startRegistered ? `（図鑑${st.startRegistered}本から）` : ''));
     add('週', `${s.week} / ${st.cfg.totalWeeks}`);
     add('ターン', E.HALF_LABEL[s.half]);
     add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
@@ -50,6 +51,11 @@
       const s = st.result || E.stats(st);
       c.appendChild(el('div', null,
         `${s.week - 1}週まで営業 / 登録 ${s.registered}本 / 所持 ${s.owned}本 / 残高 ${yen(s.cash)}`));
+      if (st.cfg.carryOver.registered) {
+        c.appendChild(el('div', 'sub',
+          `「次の周へ」で図鑑の登録${s.registered}本を引き継げます（資金と在庫は引き継ぎません）。`
+          + '登録済みのソフトは最初から取り寄せで狙えます'));
+      }
       box.appendChild(c);
       return;
     }
@@ -348,14 +354,22 @@
   window.renderUI = render;   // デバッグ用
 
   // ---------------- 操作 ----------------
-  function newGame() {
-    st = E.createGame({ seed: Number($('seed').value) || 1 });
+  let lastRun = null;   // 前周の記録（図鑑の引き継ぎ用）
+
+  function newGame(previous) {
+    st = E.createGame({ seed: Number($('seed').value) || 1, previous: previous || undefined });
     selected.clear();
     window.st = st;
     render();
   }
 
-  $('btnNew').onclick = newGame;
+  $('btnNew').onclick = () => { lastRun = null; newGame(); };
+  $('btnCarry').onclick = () => {
+    if (!st.ended) { alert('50週を終えてから引き継げます'); return; }
+    lastRun = E.carryFrom(st);
+    $('seed').value = (Number($('seed').value) || 1) + 1;   // 次の周は別の展開に
+    newGame(lastRun);
+  };
   $('btnTurn').onclick = () => { if (!st.ended) P.playTurn(st); render(); };
   $('btnWeek').onclick = () => { const w = st.week; while (!st.ended && st.week === w) P.playTurn(st); render(); };
   $('btnAll').onclick = () => { P.playAll(st); render(); };

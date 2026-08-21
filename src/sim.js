@@ -1,7 +1,8 @@
 'use strict';
 /**
  * 自動シミュレーション（仕様書 10 節「進め方」3）
- *   node src/sim.js [回数] [--seed=N] [--json] [--balance=key=value,...]
+ *   node src/sim.js [回数] [--seed=N] [--json] [--runs=N] [--balance=key=value,...]
+ *   --runs=N を付けると、図鑑を引き継いで N 周まわしたときの各周の成績を出す
  * 検証項目:
  *   10週目の残高は10万円前後か / 25週目に図鑑80本に届くか / 50週で150本所持は可能か
  *   家賃が圧力として機能しているか（序盤の破産・ヒヤリ）
@@ -14,8 +15,8 @@ const pct = (a, p) => { if (!a.length) return 0; const s = a.slice().sort((x, y)
 const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 const yen = n => Math.round(n).toLocaleString('ja-JP') + '円';
 
-function runOne(seed, balance) {
-  const st = E.createGame({ seed, balance });
+function runOne(seed, balance, previous) {
+  const st = E.createGame({ seed, balance, previous });
   P.playAll(st);
   return st;
 }
@@ -23,7 +24,7 @@ function runOne(seed, balance) {
 function run(n, opts) {
   opts = opts || {};
   const games = [];
-  for (let i = 0; i < n; i++) games.push(runOne((opts.seed || 1000) + i, opts.balance));
+  for (let i = 0; i < n; i++) games.push(runOne((opts.seed || 1000) + i, opts.balance, opts.previous));
 
   const endings = {};
   for (const g of games) endings[g.ending] = (endings[g.ending] || 0) + 1;
@@ -98,6 +99,43 @@ function report(r) {
   return L.join('\n');
 }
 
+/** 図鑑を引き継いで runs 周まわし、各周の成績を返す */
+function runChain(n, runs, opts) {
+  opts = opts || {};
+  const perRun = [];
+  const prevs = new Array(n).fill(null);
+  for (let r = 0; r < runs; r++) {
+    const games = [];
+    for (let i = 0; i < n; i++) {
+      const st = runOne((opts.seed || 1000) + i * 10 + r, opts.balance, prevs[i]);
+      games.push(st);
+      prevs[i] = E.carryFrom(st);
+    }
+    perRun.push(games);
+  }
+  return perRun;
+}
+
+function reportChain(perRun) {
+  const L = [`=== 図鑑を引き継いで${perRun.length}周（各${perRun[0].length}回） ===`,
+             '周     開始図鑑  登録率  所持率(中央値)   最高   あと一歩  真エンド   閉店'];
+  perRun.forEach((games, r) => {
+    const fin = games.map(g => g.result || E.stats(g));
+    const total = fin[0].total;
+    const own = fin.map(f => f.owned);
+    const start = median(games.map(g => g.startRegistered || 0));
+    const pc = v => String(Math.round(v * 100)).padStart(3) + '%';
+    L.push(`${String(r + 1) + '周目'}${' '.repeat(4)}${String(start + '本').padStart(6)}`
+      + pc(median(fin.map(f => f.registered)) / total).padStart(8)
+      + (pc(median(own) / total) + ' (' + median(own) + ')').padStart(14)
+      + String(Math.max(...own)).padStart(7)
+      + pc(own.filter(o => o >= total * 0.97).length / games.length).padStart(10)
+      + pc(games.filter(g => g.ending === 'true').length / games.length).padStart(10)
+      + pc(games.filter(g => g.ending === 'bad').length / games.length).padStart(7));
+  });
+  return L.join('\n');
+}
+
 if (require.main === module) {
   const args = process.argv.slice(2);
   const n = parseInt(args.find(a => /^\d+$/.test(a)) || '100', 10);
@@ -111,9 +149,15 @@ if (require.main === module) {
       balance[k] = isNaN(Number(v)) ? v : Number(v);
     }
   }
-  const r = run(n, { seed: seedArg ? Number(seedArg.slice(7)) : 1000, balance });
-  if (args.includes('--json')) console.log(JSON.stringify({ rows: r.rows, endings: r.endings, final: r.final, pressure: r.pressure }, null, 2));
-  else console.log(report(r));
+  const runsArg = args.find(a => a.startsWith('--runs='));
+  const seed = seedArg ? Number(seedArg.slice(7)) : 1000;
+  if (runsArg) {
+    console.log(reportChain(runChain(n, Math.max(1, Number(runsArg.slice(7))), { seed, balance })));
+  } else {
+    const r = run(n, { seed, balance });
+    if (args.includes('--json')) console.log(JSON.stringify({ rows: r.rows, endings: r.endings, final: r.final, pressure: r.pressure }, null, 2));
+    else console.log(report(r));
+  }
 }
 
-module.exports = { run, runOne, report, median, mean };
+module.exports = { run, runOne, runChain, report, reportChain, median, mean };
