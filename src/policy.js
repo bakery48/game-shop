@@ -23,6 +23,7 @@
     junkMinSlots: 16,      // 処分品引取に必要な空き枠
     bulkMinSlots: 8,       // まとめ買いに必要な空き枠（あふれた分は業者行き）
     expandWhenSlotsBelow: 10,
+    expandReserveRent: 3,    // 棚拡張後に残しておく家賃の倍数
     singleReserveRent: 2.5,  // 単品入札に残しておく家賃の倍数
     singleCashFloor: 400000, // これだけ現金が残るならレア狙いを優先する
     warChestFromWeek: 99,    // 終盤の仕入れ抑制（仕入れは売り物の供給源でもあるため既定は無効）
@@ -164,8 +165,9 @@
 
     // 5. 棚が詰まってきたら拡張（150本を同時所持するには必須）
     const ex = cfg.expand;
-    if (cfg.shelfSlots < ex.max && slots < TUNING.expandWhenSlotsBelow
-        && st.cash - ex.cost >= cfg.rent + TUNING.reserve && weeksLeft > 4) {
+    if (E.unlocked(st, 'expand') && cfg.shelfSlots < ex.max && slots < TUNING.expandWhenSlotsBelow
+        && st.cash - ex.cost >= cfg.rent * TUNING.expandReserveRent + TUNING.reserve
+        && weeksLeft > 4) {
       return { key: 'expand', params: {} };
     }
 

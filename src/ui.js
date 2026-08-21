@@ -117,12 +117,24 @@
       box.appendChild(card);
     };
 
-    mk('オークション（まとめ買い）',
-      `${o.bulk.lot.count}点セット — ${yen(o.bulk.cost)}`,
-      '入札する', () => { E.doAction(st, 'bulk', {}); render(); },
-      st.cash < o.bulk.cost,
-      o.bulk.hint + '｜棚に入りきらない分はその場で業者に流れます');
+    // 解禁前の選択肢は理由とともに伏せる
+    const locked = (title, key) => {
+      const card = el('div', 'card');
+      card.style.borderLeftColor = 'var(--rule)';
+      card.appendChild(el('div', 'who', title));
+      card.appendChild(el('div', 'sub', `${st.cfg.unlock[key]}週目から選べるようになります`));
+      box.appendChild(card);
+    };
 
+    if (o.bulk) {
+      mk('オークション（まとめ買い）',
+        `${o.bulk.lot.count}点セット — ${yen(o.bulk.cost)}`,
+        '入札する', () => { E.doAction(st, 'bulk', {}); render(); },
+        st.cash < o.bulk.cost,
+        o.bulk.hint + '｜棚に入りきらない分はその場で業者に流れます');
+    } else locked('オークション（まとめ買い）', 'bulk');
+
+    if (!E.unlocked(st, 'single')) locked('オークション（単品入札）', 'single');
     if (o.single) {
       const t = st.byId.get(o.single.titleId);
       const owned = E.ownedIds(st).has(t.id);
@@ -154,6 +166,7 @@
 
     // 取り寄せ — 図鑑に載っているのに手元に無いものを指名して仕入れる
     const want = E.orderable(st);
+    if (!E.unlocked(st, 'order')) locked('取り寄せを頼む', 'order');
     if (want.length) {
       const card = el('div', 'card');
       card.appendChild(el('div', 'who', '取り寄せを頼む'));
@@ -178,11 +191,13 @@
       box.appendChild(card);
     }
 
-    mk('処分品引取',
-      `雑多な箱 ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
-      '引き取る', () => { E.doAction(st, 'junk', {}); render(); },
-      st.cash < o.junk.cost,
-      'ほとんどガラクタですが並品が数本混じります');
+    if (o.junk) {
+      mk('処分品引取',
+        `雑多な箱 ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
+        '引き取る', () => { E.doAction(st, 'junk', {}); render(); },
+        st.cash < o.junk.cost,
+        'ほとんどガラクタですが並品が数本混じります');
+    } else locked('処分品引取', 'junk');
 
     mk('店舗・保管庫の整理',
       selected.size ? `選択中の${selected.size}点を業者に卸します` : '在庫表で選んだ在庫を業者に卸します',
@@ -193,7 +208,8 @@
       }, false, `卸値は基準相場の${Math.round(st.cfg.wholesaleRatio * 100)}%です`);
 
     const ex = st.cfg.expand;
-    mk('棚を拡張する',
+    if (!E.unlocked(st, 'expand')) locked('棚を拡張する', 'expand');
+    else mk('棚を拡張する',
       `${st.cfg.shelfSlots} → ${Math.min(ex.max, st.cfg.shelfSlots + ex.step)}枠 — ${yen(ex.cost)}`,
       '拡張する', () => { E.doAction(st, 'expand', {}); render(); },
       st.cash < ex.cost || st.cfg.shelfSlots >= ex.max,

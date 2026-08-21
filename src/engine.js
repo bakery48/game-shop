@@ -54,7 +54,9 @@
      * 仕様書 2 節の「客3〜4人」は"判断が要る客"の数として扱い、
      * それ以外の一般客はまとめて自動処理する。これが無いと家賃を払える売上に届かない。
      */
-    passiveSales: { count: [7, 12], priceRange: [0.90, 1.05] },
+    passiveSales: { count: [7, 12], priceRange: [0.90, 1.05],
+                    // 寂れた店には客も来ない。品揃えが増えるにつれて客足が戻る
+                    earlyCount: [5, 9], fullFromWeek: 16 },
 
     // 店番（＝売る／売らないの判断が発生する客）
     customers: {
@@ -75,11 +77,20 @@
     junk:   { cost: [0, 5000], freeChance: 0.5, items: [10, 20],
               mix: { junk: 0.72, common: 0.26, mid: 0.02, rare: 0, ultra: 0 } },
     bulk:   { items: [30, 50], priceRatio: [0.20, 0.45], cap: [3000, 90000],
+              // 寂れた店には良いロットが回ってこない。週が進むほど mix に近づく
+              earlyMix: { junk: 0.47, common: 0.38, mid: 0.11, rare: 0.04, ultra: 0.002 },
+              mixFullFromWeek: 16,
               mix: { junk: 0.44, common: 0.38, mid: 0.12, rare: 0.055, ultra: 0.005 } },
     single: { rivalRatio: [0.50, 0.95], askRatio: [0.35, 0.50],
               tierWeights: { mid: 0.18, rare: 0.70, ultra: 0.12 },
               ultraLateBonus: 0.35,   // 週が進むほど激レアが出品されやすい
               ownedPenalty: 0.15 },   // 所持済みは出品されにくい（＝欲しい物が回ってくる）
+
+    /**
+     * 行動フェイズの解禁週（仕様書 3 節の週フェーズ設計に対応）。
+     * 1〜10週は資金繰りを覚える期間なので、大きく張れる選択肢を出さない。
+     */
+    unlock: { bulk: 1, junk: 1, organize: 1, single: 11, expand: 11, order: 11 },
 
     /**
      * 取り寄せ（仕様書 3 節「46〜50週: 最後の数本を狙い撃つ」に対応する手段）。
@@ -159,7 +170,7 @@
   const orderCost = (st, t) => Math.round(t.base * st.cfg.order.premium / 100) * 100;
   /** 取り寄せられるソフト＝登録済みだが今は持っていないもの */
   function orderable(st) {
-    if (st.week < st.cfg.order.fromWeek) return [];
+    if (st.week < Math.max(st.cfg.order.fromWeek, st.cfg.unlock.order || 1)) return [];
     const owned = ownedIds(st);
     return st.catalog.filter(t => st.registered.has(t.id) && !owned.has(t.id));
   }
@@ -353,12 +364,26 @@
   // ============================================================
   // 行動フェイズ
   // ============================================================
+  /** 週の進みに応じてロットの中身を良くする */
+  function lotMix(st, spec) {
+    if (!spec.earlyMix) return spec.mix;
+    const span = Math.max(1, (spec.mixFullFromWeek || 1) - 1);
+    const t = Math.max(0, Math.min(1, (st.week - 1) / span));
+    const out = {};
+    for (const k of Object.keys(spec.mix)) {
+      const a = spec.earlyMix[k] === undefined ? spec.mix[k] : spec.earlyMix[k];
+      out[k] = a + t * (spec.mix[k] - a);
+    }
+    return out;
+  }
+
   function rollLot(st, spec) {
     const n = rInt(st.rng, spec.items[0], spec.items[1]);
+    const mix = lotMix(st, spec);
     const titles = [];
     let junkCount = 0, retail = 0;
     for (let i = 0; i < n; i++) {
-      const tier = pickTier(st.rng, spec.mix);
+      const tier = pickTier(st.rng, mix);
       if (tier === 'junk') { junkCount++; continue; }
       const t = pickTitle(st, tier, { byDemand: true });
       if (!t) { junkCount++; continue; }
@@ -367,6 +392,8 @@
     }
     return { count: n, titles, junkCount, retail };
   }
+
+  const unlocked = (st, key) => st.week >= (st.cfg.unlock[key] || 1);
 
   function generateOffers(st) {
     const cfg = st.cfg;
@@ -399,10 +426,12 @@
     } : null;
 
     return {
-      junk: { cost: junkCost, lot: junkLot, hint: `雑多な箱が${junkLot.count}点ほど` },
-      bulk: { cost: bulkCost, lot: bulkLot,
-              hint: `${bulkLot.count}点セット。${bulkLot.titles.length >= 10 ? '中身は当たりかもしれない' : 'ガラクタが多そうだ'}` },
-      single: singleOffer,
+      junk: unlocked(st, 'junk')
+        ? { cost: junkCost, lot: junkLot, hint: `雑多な箱が${junkLot.count}点ほど` } : null,
+      bulk: unlocked(st, 'bulk')
+        ? { cost: bulkCost, lot: bulkLot,
+            hint: `${bulkLot.count}点セット。${bulkLot.titles.length >= 10 ? '中身は当たりかもしれない' : 'ガラクタが多そうだ'}` } : null,
+      single: unlocked(st, 'single') ? singleOffer : null,
     };
   }
 
@@ -423,6 +452,7 @@
 
     if (key === 'bulk' || key === 'junk') {
       const offer = st.offers[key];
+      if (!offer) return { ok: false, reason: 'locked' };
       if (st.cash < offer.cost) return { ok: false, reason: 'cash' };
       st.cash -= offer.cost;
       st.totals.purchases += offer.cost;
@@ -480,6 +510,7 @@
       for (const uid of params.markdown || []) setMarkdown(st, uid, true);
 
     } else if (key === 'order') {
+      if (!unlocked(st, 'order')) return { ok: false, reason: 'locked' };
       const t = st.byId.get(params.titleId);
       if (!t) return { ok: false, reason: 'notitle' };
       if (!st.registered.has(t.id)) return { ok: false, reason: 'unknown' };   // 知らない物は頼めない
@@ -496,6 +527,7 @@
       log(st, 'order', `取り寄せ: 「${t.name}」が届いた`, -cost);
 
     } else if (key === 'expand') {
+      if (!unlocked(st, 'expand')) return { ok: false, reason: 'locked' };
       const ex = st.cfg.expand;
       if (st.cfg.shelfSlots >= ex.max) return { ok: false, reason: 'max' };
       if (st.cash < ex.cost) return { ok: false, reason: 'cash' };
@@ -614,7 +646,13 @@
   /** 陳列棚から自動的に売れる分。判断は発生しない */
   function resolvePassiveSales(st) {
     const ps = st.cfg.passiveSales;
-    const n = rInt(st.rng, ps.count[0], ps.count[1]);
+    let lo = ps.count[0], hi = ps.count[1];
+    if (ps.earlyCount) {
+      const t = Math.max(0, Math.min(1, (st.week - 1) / Math.max(1, (ps.fullFromWeek || 1) - 1)));
+      lo = ps.earlyCount[0] + t * (ps.count[0] - ps.earlyCount[0]);
+      hi = ps.earlyCount[1] + t * (ps.count[1] - ps.earlyCount[1]);
+    }
+    const n = rInt(st.rng, Math.round(lo), Math.round(hi));
     let total = 0, sold = 0;
     const names = [];
     for (let i = 0; i < n; i++) {
@@ -690,7 +728,7 @@
     BALANCE, HALF_LABEL, createGame,
     answer, doAction, endTurn,
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
-    freeSlots, freeDisplay, countOf, orderCost, orderable, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
+    freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay, setMarkdown, setProtect, wholesale, removeItem,
     forSale,
   };
 });
