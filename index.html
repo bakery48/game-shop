@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>中古ゲームショップ経営 プロトタイプ</title>
+<style>
+  :root { --line:#c9c4bb; --bg:#f7f5f0; --panel:#fff; --ink:#22201c; --sub:#6b655c;
+          --accent:#8a5a2b; --warn:#b3261e; --ok:#2e6b34; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:12px; background:var(--bg); color:var(--ink);
+         font: 13px/1.55 "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif; }
+  h1 { font-size:15px; margin:0 0 8px; }
+  h2 { font-size:13px; margin:0 0 6px; padding-bottom:3px; border-bottom:1px solid var(--line); }
+  .wrap { display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:start; max-width:1400px; }
+  .panel { background:var(--panel); border:1px solid var(--line); padding:8px 10px; }
+  .full { grid-column: 1 / -1; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th, td { border:1px solid var(--line); padding:2px 5px; text-align:left; white-space:nowrap; }
+  th { background:#efece5; font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .scroll { max-height:300px; overflow:auto; }
+  button { font:inherit; padding:3px 9px; border:1px solid var(--line); background:#fff;
+           cursor:pointer; border-radius:2px; }
+  button:hover:not(:disabled) { background:#efece5; }
+  button:disabled { opacity:.4; cursor:default; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.primary:hover:not(:disabled) { background:#a06a34; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:5px 0; }
+  .stat { display:flex; gap:14px; flex-wrap:wrap; font-variant-numeric:tabular-nums; }
+  .stat b { font-weight:600; }
+  .sub { color:var(--sub); }
+  .warn { color:var(--warn); font-weight:600; }
+  .ok { color:var(--ok); }
+  .card { border:1px solid var(--line); background:#fffdf7; padding:7px 9px; margin-bottom:6px; }
+  .card .who { font-weight:600; }
+  #log { font-size:11.5px; max-height:220px; overflow:auto; }
+  #log div { padding:1px 0; border-bottom:1px dotted #e2ded6; }
+  .tier-common{color:#666} .tier-mid{color:#1f5d8c} .tier-rare{color:#8a5a2b;font-weight:600}
+  .tier-ultra{color:#8c1f4e;font-weight:700}
+  .pill { font-size:11px; border:1px solid var(--line); padding:0 4px; border-radius:8px; }
+  pre { font-size:11.5px; overflow:auto; background:#fbfaf7; border:1px solid var(--line); padding:6px; margin:6px 0 0; }
+  input[type=number] { width:90px; font:inherit; padding:2px 4px; border:1px solid var(--line); }
+</style>
+</head>
+<body>
+<h1>中古ゲームショップ経営＋架空ソフト収集 — プロトタイプ v0.1</h1>
+
+<div class="wrap">
+  <div class="panel full">
+    <div class="stat" id="stat"></div>
+    <div class="row">
+      <button id="btnTurn">1ターン自動</button>
+      <button id="btnWeek">1週自動</button>
+      <button id="btnAll">最後まで自動</button>
+      <button id="btnNew">新しく始める</button>
+      <span class="sub">seed <input type="number" id="seed" value="1" style="width:70px"></span>
+      <button id="btnSim">シミュレーション100回</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>店内</h2>
+    <div id="phase"></div>
+  </div>
+
+  <div class="panel">
+    <h2>ログ</h2>
+    <div id="log"></div>
+  </div>
+
+  <div class="panel full" id="simPanel" style="display:none">
+    <h2>自動シミュレーション結果</h2>
+    <pre id="simOut"></pre>
+  </div>
+
+  <div class="panel">
+    <h2>在庫 <span class="sub" id="invNote"></span></h2>
+    <div class="row">
+      <button id="btnWholesale">選択した在庫を業者に卸す</button>
+      <span class="sub" id="selNote"></span>
+    </div>
+    <div class="scroll"><table id="inv"></table></div>
+  </div>
+
+  <div class="panel">
+    <h2>図鑑 <span class="sub" id="dexNote"></span></h2>
+    <div class="row">
+      <label><input type="checkbox" id="dexMissing"> 未所持のみ表示</label>
+    </div>
+    <div class="scroll"><table id="dex"></table></div>
+  </div>
+</div>
+
+<script src="src/catalog.js"></script>
+<script src="src/engine.js"></script>
+<script src="src/policy.js"></script>
+<script src="src/ui.js"></script>
+</body>
+</html>
