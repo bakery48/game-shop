@@ -1,0 +1,204 @@
+<title>棚を埋める50週</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+1+Code:wght@400;500;700&display=swap">
+<style>
+/* ── 配色トークン。既定は「値札の貼られた藁半紙」 ───────────────── */
+:root {
+  --paper:#E4E1D6; --panel:#F2F0E8; --sunk:#EAE7DC;
+  --ink:#23221B; --sub:#6D6858; --rule:#C6C0AE; --rule-soft:#DAD5C6;
+  --accent:#B8431C; --accent-ink:#FFF8F2;
+  --good:#2E6738; --info:#245B79; --gold:#8A6412; --violet:#7A2E56;
+  --shadow:0 1px 0 rgba(35,34,27,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E;
+    --ink:#DDE2DE; --sub:#8A9189; --rule:#333941; --rule-soft:#272C33;
+    --accent:#E2703F; --accent-ink:#1A0E07;
+    --good:#78C489; --info:#71ABCC; --gold:#D2A84A; --violet:#D986AE;
+    --shadow:0 1px 0 rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E;
+  --ink:#DDE2DE; --sub:#8A9189; --rule:#333941; --rule-soft:#272C33;
+  --accent:#E2703F; --accent-ink:#1A0E07;
+  --good:#78C489; --info:#71ABCC; --gold:#D2A84A; --violet:#D986AE;
+  --shadow:0 1px 0 rgba(0,0,0,.4);
+}
+
+* { box-sizing:border-box; }
+body {
+  margin:0; padding:14px 16px 40px; background:var(--paper); color:var(--ink);
+  font:14px/1.6 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
+  font-variant-numeric:tabular-nums;
+}
+.shell { max-width:1440px; margin:0 auto; }
+
+/* ── 見出し ─────────────────────────────────────────────── */
+.masthead { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 16px; margin-bottom:12px; }
+.masthead h1 {
+  font-family:"DotGothic16",monospace; font-weight:400; font-size:23px;
+  margin:0; letter-spacing:.06em; text-wrap:balance;
+}
+.masthead .tag {
+  font-family:"DotGothic16",monospace; font-size:12px; color:var(--sub); letter-spacing:.14em;
+}
+
+/* ── HUD ────────────────────────────────────────────────── */
+#stat {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
+  background:var(--panel); border:1px solid var(--rule); box-shadow:var(--shadow);
+}
+#stat > div {
+  display:flex; flex-direction:column; gap:1px; overflow:hidden;
+  padding:7px 11px; border-right:1px solid var(--rule-soft); min-width:0;
+}
+#stat > div:last-child { border-right:0; }
+#stat .sub {
+  font-family:"DotGothic16",monospace; font-size:11px; letter-spacing:.1em;
+  color:var(--sub); white-space:nowrap;
+}
+#stat b { font-weight:500; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── パネル ─────────────────────────────────────────────── */
+.grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:12px; margin-top:12px; align-items:start; }
+.full { grid-column:1 / -1; }
+.panel { background:var(--panel); border:1px solid var(--rule); box-shadow:var(--shadow); }
+.panel > h2 {
+  font-family:"DotGothic16",monospace; font-weight:400; font-size:13px; letter-spacing:.12em;
+  margin:0; padding:7px 11px; border-bottom:1px solid var(--rule);
+  background:var(--sunk); display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;
+}
+.panel > h2 .sub { font-family:inherit; font-size:11px; color:var(--sub); letter-spacing:.06em; }
+.body { padding:10px 11px; }
+
+/* ── 操作 ───────────────────────────────────────────────── */
+.row { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+.row + .row { margin-top:7px; }
+button {
+  font-family:"DotGothic16",monospace; font-size:13px; letter-spacing:.06em;
+  padding:5px 13px; border:1px solid var(--rule); background:var(--panel); color:var(--ink);
+  cursor:pointer; border-radius:0; line-height:1.4;
+}
+button:hover:not(:disabled) { background:var(--sunk); border-color:var(--sub); }
+button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+button:disabled { opacity:.35; cursor:default; }
+button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+button.primary:hover:not(:disabled) { filter:brightness(1.08); background:var(--accent); }
+input[type=number] {
+  font:inherit; width:96px; padding:4px 6px; background:var(--panel); color:var(--ink);
+  border:1px solid var(--rule); border-radius:0;
+}
+input[type=checkbox] { accent-color:var(--accent); }
+label { display:inline-flex; gap:5px; align-items:center; font-size:13px; }
+
+/* ── 客・行動のカード ────────────────────────────────────── */
+.card { border:1px solid var(--rule-soft); border-left:3px solid var(--accent); background:var(--sunk); padding:9px 11px; }
+.card + .card { margin-top:8px; }
+.card .who {
+  font-family:"DotGothic16",monospace; font-size:12px; letter-spacing:.1em;
+  color:var(--sub); margin-bottom:2px;
+}
+.card .row { margin-top:8px; }
+
+/* ── 表 ─────────────────────────────────────────────────── */
+.scroll { max-height:330px; overflow:auto; border-top:1px solid var(--rule); }
+table { border-collapse:collapse; width:100%; font-size:12.5px; }
+th, td { border-bottom:1px solid var(--rule-soft); padding:3px 8px; text-align:left; white-space:nowrap; }
+th {
+  position:sticky; top:0; z-index:1; background:var(--sunk); color:var(--sub);
+  font-family:"DotGothic16",monospace; font-weight:400; font-size:11px; letter-spacing:.08em;
+  border-bottom:1px solid var(--rule);
+}
+td.num, th.num { text-align:right; }
+tbody tr:hover td { background:var(--sunk); }
+
+/* ── 状態の色 ───────────────────────────────────────────── */
+.sub  { color:var(--sub); }
+.warn { color:var(--accent); font-weight:700; }
+.ok   { color:var(--good); font-weight:500; }
+.tier-common { color:var(--sub); }
+.tier-mid    { color:var(--info); }
+.tier-rare   { color:var(--gold);   font-weight:700; }
+.tier-ultra  { color:var(--violet); font-weight:700; }
+
+/* ── ログ ───────────────────────────────────────────────── */
+#log { font-size:12px; max-height:330px; overflow:auto; padding:6px 11px; }
+#log div { padding:2px 0; border-bottom:1px dotted var(--rule-soft); }
+#log div:last-child { border-bottom:0; }
+
+pre {
+  font:12.5px/1.7 "M PLUS 1 Code",monospace; margin:0; padding:10px 11px;
+  background:var(--sunk); overflow-x:auto; color:var(--ink);
+}
+.note { font-size:12px; color:var(--sub); margin-top:10px; }
+.note a { color:var(--info); }
+
+@media (max-width:900px) { .grid { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+
+<div class="shell">
+  <div class="masthead">
+    <h1>棚を埋める50週</h1>
+    <span class="tag">中古ゲームショップ経営＋架空ソフト収集／資金カーブ検証用プロトタイプ</span>
+  </div>
+
+  <div id="stat"></div>
+
+  <div class="grid">
+    <div class="panel full">
+      <div class="body">
+        <div class="row">
+          <button id="btnTurn">1ターン自動</button>
+          <button id="btnWeek">1週自動</button>
+          <button id="btnAll">最後まで自動</button>
+          <button id="btnNew">新しく始める</button>
+          <label class="sub">seed <input type="number" id="seed" value="1"></label>
+          <button id="btnSim">シミュレーション100回</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>店内</h2>
+      <div class="body" id="phase"></div>
+    </div>
+
+    <div class="panel">
+      <h2>ログ</h2>
+      <div id="log"></div>
+    </div>
+
+    <div class="panel full" id="simPanel" style="display:none">
+      <h2>自動シミュレーション結果 <span class="sub">100回まわした中央値</span></h2>
+      <pre id="simOut"></pre>
+    </div>
+
+    <div class="panel">
+      <h2>在庫 <span class="sub" id="invNote"></span></h2>
+      <div class="body">
+        <div class="row">
+          <button id="btnWholesale">選択した在庫を業者に卸す</button>
+          <span class="sub" id="selNote"></span>
+        </div>
+      </div>
+      <div class="scroll"><table id="inv"></table></div>
+    </div>
+
+    <div class="panel">
+      <h2>図鑑 <span class="sub" id="dexNote"></span></h2>
+      <div class="body">
+        <div class="row"><label><input type="checkbox" id="dexMissing"> 未所持のみ表示</label></div>
+      </div>
+      <div class="scroll"><table id="dex"></table></div>
+    </div>
+  </div>
+
+  <p class="note">
+    仕様書 v0.1「10. プロトタイプの範囲」の検証用。見た目は表とボタンのみで、グラフィック・常連イベント・査定の詳細・評判は未実装です。
+    「非売品」に印を付けた在庫は、客も店頭の自動売上も手を出しません。
+  </p>
+</div>

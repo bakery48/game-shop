@@ -29,8 +29,8 @@
     add('週', `${s.week} / ${st.cfg.totalWeeks}`);
     add('ターン', E.HALF_LABEL[s.half]);
     add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
-    add('家賃', yen(st.cfg.rent) + (rentSoon ? '（今ターン終了時）' : ''), rentSoon ? 'warn' : null);
-    add('在庫', `${s.inventory} / ${s.slots}` + (s.junk ? `（ガラクタ${s.junk}）` : ''));
+    add('家賃', yen(st.cfg.rent) + (rentSoon ? ' 今週末' : ''), rentSoon ? 'warn' : null);
+    add('在庫', `${s.inventory} / ${s.slots}` + (s.junk ? `（雑${s.junk}）` : ''));
     add('陳列', `${s.displayed} / ${s.displaySlots}`);
     add('図鑑 登録', `${s.registered} / ${s.total}（${Math.round(s.registeredRate * 100)}%）`);
     add('所持', `${s.owned} / ${s.total}（${Math.round(s.ownedRate * 100)}%）`,

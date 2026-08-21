@@ -10,6 +10,11 @@
 
     index.html をブラウザで開くだけ（ビルド不要・サーバ不要）
 
+配布用に1ファイルへまとめたものが `dist/prototype.html` です。
+このファイル単体をブラウザにドラッグするだけで動きます。作り直すには:
+
+    node build/build.js
+
 - 「1ターン自動 / 1週自動 / 最後まで自動」で自動プレイの挙動を確認できます
 - 「シミュレーション100回」はブラウザ内で 100 周まわして分布を出します
 - seed を変えると同じ条件を再現できます（ソフト150本の内容は seed によらず固定）
@@ -30,6 +35,7 @@
 | `src/policy.js` | 自動プレイの方針。資金カーブ検証の基準線 |
 | `src/sim.js` | 100回まわして分布と検証項目を出す |
 | `src/ui.js` / `index.html` | ブラウザ版UI |
+| `build/build.js` / `build/template.html` | `dist/prototype.html`（単一ファイル版）を作る |
 
 `src/engine.js` と `src/policy.js` はブラウザと Node の両方から使えます。
 
