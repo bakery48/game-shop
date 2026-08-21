@@ -615,6 +615,7 @@ pre {
   // ============================================================
   function addItem(st, title, opts) {
     if (freeSlots(st) <= 0) return null;
+    st.totals.acquired++;
     const item = makeItem(st, title);
     st.inv.push(item);
     if (title) st.registered.add(title.id);            // 図鑑登録は一度でも入手すれば永続
@@ -875,7 +876,8 @@ pre {
         if (addItem(st, t)) { added++; res.gained.push(t.id); }
         else {
           // 棚に入れずそのまま業者行きなので図鑑には載らない
-          overflow++; overflowCash += Math.round(t.base * st.cfg.wholesaleRatio);
+          overflow++; st.totals.overflow++;
+          overflowCash += Math.round(t.base * st.cfg.wholesaleRatio);
         }
       }
       for (let i = 0; i < offer.lot.junkCount; i++) {
@@ -1115,7 +1117,7 @@ pre {
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
       ultraEvents: 0, ultraDue: 0, lost: {},
-      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0 },
+      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0 },
     };
 
     st.catalog = Catalog.build(cfg.tiers, cfg.catalogSize, cfg.catalogSeed);
