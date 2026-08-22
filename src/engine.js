@@ -49,9 +49,9 @@
      * 設備は「棚売り（値札売り）」を、人手は「接客（指名客）」を伸ばす。
      */
     upgrades: [
-      { id: 'warehouse', name: '倉庫を広げる', cost: 100000, max: 3,
+      { id: 'warehouse', name: '倉庫を広げる', cost: 100000, max: 5,
         effect: { shelfSlots: 50 },
-        desc: '保管できる本数が50枠増える。150本を同時所持するには必須' },
+        desc: '保管できる本数が50枠増える。全タイトルを同時所持するには必須' },
       { id: 'shelf', name: '陳列棚を増やす', cost: 80000, max: 4,
         effect: { displaySlots: 10 },
         desc: '店に並べられる本数が10増える。並べた分だけ値札で売れる' },
@@ -70,7 +70,7 @@
      *  'both'    … 両方
      */
     ultra: { source: 'auction' },
-    catalogSize: 150,
+    catalogSize: 200,
     catalogSeed: 20260821,
 
     tiers: {
@@ -159,7 +159,8 @@
               // 寂れた店には良いロットが回ってこない。週が進むほど mix に近づく
               earlyMix: { junk: 0.47, common: 0.38, mid: 0.11, rare: 0.04, ultra: 0.002 },
               mixFullFromWeek: 16,
-              mix: { junk: 0.44, common: 0.38, mid: 0.12, rare: 0.055, ultra: 0.005 } },
+              // レアの含有率は総数に連動させる（総数が増えると1本あたりの遭遇率が下がる）
+              mix: { junk: 0.44, common: 0.362, mid: 0.12, rare: 0.073, ultra: 0.008 } },
     single: { rivalRatio: [0.50, 0.95], askRatio: [0.35, 0.50],
               tierWeights: { mid: 0.18, rare: 0.70, ultra: 0.12 },
               ultraLateBonus: 0.35,   // 週が進むほど激レアが出品されやすい
@@ -176,7 +177,7 @@
      * 図鑑に載っている＝一度は手にしたソフトを、割増料金で指名して仕入れる。
      * 終盤に余った資金の受け皿も兼ねる。
      */
-    order: { premium: 1.6, fromWeek: 1 },
+    order: { premium: 1.6, fromWeek: 1, batch: 3 },   // 1手番でまとめて頼める本数
 
     /**
      * 周回引き継ぎ（仕様書 12 節の未決定事項）。
@@ -805,20 +806,31 @@
 
     } else if (key === 'order') {
       if (!unlocked(st, 'order')) return { ok: false, reason: 'locked' };
-      const t = st.byId.get(params.titleId);
-      if (!t) return { ok: false, reason: 'notitle' };
-      if (!st.registered.has(t.id)) return { ok: false, reason: 'unknown' };   // 知らない物は頼めない
-      if (ownedIds(st).has(t.id)) return { ok: false, reason: 'owned' };
-      if (freeSlots(st) <= 0) return { ok: false, reason: 'slots' };
-      const cost = orderCost(st, t);
-      if (st.cash < cost) return { ok: false, reason: 'cash' };
-      st.cash -= cost;
-      st.totals.purchases += cost;
-      st.totals.orderCount++;
-      res.spent = cost;
-      res.gained.push(t.id);
-      addItem(st, t);
-      log(st, 'order', `取り寄せ: 「${t.name}」が届いた`, -cost);
+      // まとめて頼める。titleIds でも titleId でも受ける
+      const ids = params.titleIds || [params.titleId];
+      const max = Math.max(1, st.cfg.order.batch || 1);
+      const done = [];
+      let spent = 0;
+      let stop = null;                                    // 途中で止まった理由
+      for (const id of ids.slice(0, max)) {
+        const t = st.byId.get(id);
+        if (!t) continue;
+        if (!st.registered.has(t.id)) continue;          // 知らない物は頼めない
+        if (ownedIds(st).has(t.id)) continue;
+        if (freeSlots(st) <= 0) { stop = 'slots'; break; }
+        const cost = orderCost(st, t);
+        if (st.cash < cost) { stop = 'cash'; break; }
+        st.cash -= cost;
+        st.totals.purchases += cost;
+        st.totals.orderCount++;
+        spent += cost;
+        addItem(st, t);
+        res.gained.push(t.id);
+        done.push(t.name);
+      }
+      if (!done.length) return { ok: false, reason: stop || 'none' };
+      res.spent = spent;
+      log(st, 'order', `取り寄せ: ${done.join('、')}が届いた`, -spent);
 
     } else if (key === 'upgrade') {
       const up = (st.cfg.upgrades || []).find(u => u.id === params.id);

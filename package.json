@@ -1,0 +1,14 @@
+{
+  "name": "retro-game-shop-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "description": "中古ゲームショップ経営プロトタイプ（仕様書10節）",
+  "scripts": {
+    "build": "node build/gen-data.js && node build/build.js",
+    "test": "node test/check.js && node test/browser.js",
+    "sim": "node src/sim.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

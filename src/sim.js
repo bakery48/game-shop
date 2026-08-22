@@ -4,7 +4,7 @@
  *   node src/sim.js [回数] [--seed=N] [--json] [--runs=N] [--balance=key=value,...]
  *   --runs=N を付けると、図鑑を引き継いで N 周まわしたときの各周の成績を出す
  * 検証項目:
- *   10週目の残高は10万円前後か / 25週目に図鑑80本に届くか / 50週で150本所持は可能か
+ *   10週目の残高は10万円前後か / 25週目に図鑑が半分に届くか / 全所持は可能か（ただし余裕はないか）
  *   家賃が圧力として機能しているか（序盤の破産・ヒヤリ）
  */
 const E = require('./engine.js');
@@ -93,8 +93,10 @@ function report(r) {
   const w10 = r.rows.find(x => x.week === 10), w25 = r.rows.find(x => x.week === 25), w50 = r.rows.find(x => x.week === 50);
   const judge = (ok, s) => (ok ? '○ ' : '× ') + s;
   L.push(judge(w10.alive && w10.cash >= 60000 && w10.cash <= 160000, `10週目の残高が10万円前後 → ${w10.alive ? yen(w10.cash) : '全滅'}`));
-  L.push(judge(w25.alive && w25.registered >= 75, `25週目に図鑑80本 → ${w25.alive ? w25.registered + '本' : '全滅'}`));
-  L.push(judge(r.final.ownedMax >= 140 && r.endings.true !== r.n, `50週で150本所持が「可能だが余裕はない」 → 最高${r.final.ownedMax}本 / 真エンド${r.endings.true || 0}回`));
+  const full = E.BALANCE.catalogSize;
+  const halfway = Math.round(full * 0.5);
+  L.push(judge(w25.alive && w25.registered >= halfway, `25週目に図鑑${halfway}本 → ${w25.alive ? w25.registered + '本' : '全滅'}`));
+  L.push(judge(r.final.ownedMax >= Math.round(full * 0.93) && r.endings.true !== r.n, `${E.BALANCE.totalWeeks}週で${full}本所持が「可能だが余裕はない」 → 最高${r.final.ownedMax}本 / 真エンド${r.endings.true || 0}回`));
   L.push(judge(r.pressure.scaryWeeks >= 1 && r.pressure.bankruptRate < 0.35, `家賃が圧力として機能 → ヒヤリ${r.pressure.scaryWeeks.toFixed(1)}週 / 閉店率${Math.round(r.pressure.bankruptRate * 100)}%`));
   return L.join('\n');
 }

@@ -246,8 +246,14 @@
     if (want.length) {
       const card = el('div', 'card');
       card.appendChild(el('div', 'who', '取り寄せを頼む'));
-      card.appendChild(el('div', null, `図鑑に載っているのに手元に無いソフト ${want.length}本から指名できます`));
+      const batch = Math.max(1, st.cfg.order.batch || 1);
+      card.appendChild(el('div', null,
+        `図鑑に載っているのに手元に無いソフト ${want.length}本から、1回に${batch}本まで指名できます`));
       const sel = document.createElement('select');
+      if (batch > 1) {
+        sel.multiple = true;
+        sel.size = Math.min(8, Math.max(3, want.length));
+      }
       want.slice().sort((a, b) => E.orderCost(st, a) - E.orderCost(st, b)).forEach(t => {
         const op = document.createElement('option');
         op.value = t.id;
@@ -255,12 +261,18 @@
         sel.appendChild(op);
       });
       card.appendChild(el('div', 'sub',
-        `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`));
+        `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`
+        + (batch > 1 ? `（Ctrl＋クリックで${batch}本まで選べます。まとめて頼んでも手番は1回）` : '')));
       const row = el('div', 'row');
       row.appendChild(sel);
       row.appendChild(btn('頼む', () => {
-        const r = E.doAction(st, 'order', { titleId: Number(sel.value) });
-        if (!r.ok) alert({ cash: '資金が足りません', slots: '棚枠が満杯です' }[r.reason] || '取り寄せできません');
+        const picked = [...sel.selectedOptions].slice(0, batch).map(o => Number(o.value));
+        if (!picked.length) { alert('取り寄せるソフトを選んでください'); return; }
+        const r = E.doAction(st, 'order', { titleIds: picked });
+        if (!r.ok) {
+          alert({ cash: '資金が足りません', slots: '棚枠が満杯です', none: '取り寄せできません' }[r.reason]
+            || '取り寄せできません');
+        }
         render();
       }, true));
       card.appendChild(row);

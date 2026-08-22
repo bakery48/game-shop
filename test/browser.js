@@ -19,9 +19,15 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     if (ok) console.log('  ok   ' + name + (note ? '  — ' + note : ''));
     else { failed++; console.log('  NG   ' + name + (note ? '  — ' + note : '')); }
   };
-  const browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM_PATH || undefined,
-  });
+  let browser;
+  try {
+    browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
+  } catch (e) {
+    // ブラウザ本体が落ちていない環境ではスキップする（npx playwright install chromium）
+    console.log('chromium を起動できないのでスキップします: ' + e.message.split('\n')[0]);
+    console.log('  npx playwright install chromium か、CHROMIUM_PATH に実行ファイルを指定してください');
+    process.exit(0);
+  }
   for (const scheme of ['light', 'dark']) {
     const page = await browser.newPage({ colorScheme: scheme, viewport: { width: 1400, height: 1200 } });
     const errs = [];
@@ -37,6 +43,24 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 常連が描画される`, (await page.locator('#regulars tr').count()) === 8);
     check(`${scheme}: 横スクロールしない`,
       !(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)));
+
+    // 取り寄せを手動でまとめて頼めるか（自動プレイと同じ本数を人間も使えること）
+    const order = await page.evaluate(() => {
+      st.week = 30;
+      st.cash = 3000000;
+      st.catalog.slice(0, 60).forEach(t => st.registered.add(t.id));
+      while (st.phase === 'shop' && st.current) Engine.answer(st, false);
+      window.renderUI();
+      const sel = [...document.querySelectorAll('select')].find(x => x.multiple);
+      if (!sel || sel.options.length < 3) return { ok: false, why: '取り寄せの複数選択が無い' };
+      for (let i = 0; i < 3; i++) sel.options[i].selected = true;
+      const card = sel.closest('.card');
+      const before = st.totals.orderCount;
+      [...card.querySelectorAll('button')].find(b => b.textContent.includes('頼む')).click();
+      return { ok: true, got: st.totals.orderCount - before };
+    });
+    check(`${scheme}: 取り寄せを1手番で3本頼める`,
+      order.ok && order.got === 3, order.why || `${order.got}本`);
 
     // 50週を自動で回して落ちないか
     await page.evaluate(() => { Policy.playAll(st); window.renderUI(); });

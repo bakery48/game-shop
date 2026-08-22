@@ -91,14 +91,27 @@ check('src/software-data.js が data/*.json と一致', () => {
 
 // ---------------- 3. カタログ ----------------
 section('カタログ生成');
-check('150本ぶんが区分どおりに揃う', () => {
+check('カタログ総数ぶんが区分どおりに揃う', () => {
   const st = E.createGame({ seed: 1 });
+  const total = E.BALANCE.catalogSize;
+  assert(st.catalog.length === total, `カタログが ${st.catalog.length} 本（期待 ${total}）`);
+
+  // catalog.js と同じ按分（tiers[k].count の比率を総数に合わせる）
+  const keys = Object.keys(E.BALANCE.tiers);
+  const declared = keys.reduce((s, k) => s + E.BALANCE.tiers[k].count, 0);
+  const want = {};
+  let assigned = 0;
+  keys.forEach((k, i) => {
+    if (i === keys.length - 1) want[k] = total - assigned;
+    else { want[k] = Math.round(E.BALANCE.tiers[k].count / declared * total); assigned += want[k]; }
+  });
+
   const by = {};
   for (const t of st.catalog) by[t.tier] = (by[t.tier] || 0) + 1;
-  for (const k in E.BALANCE.tiers) {
-    assert(by[k] === E.BALANCE.tiers[k].count, `${k} が ${by[k]} 本（期待 ${E.BALANCE.tiers[k].count}）`);
+  for (const k of keys) {
+    assert(by[k] === want[k], `${k} が ${by[k]} 本（期待 ${want[k]}）`);
   }
-  return Object.entries(by).map(([k, v]) => `${k}${v}`).join(' ');
+  return `${total}本 ` + keys.map(k => `${k}${by[k]}`).join(' ');
 });
 check('カタログは seed によらず同じ', () => {
   const a = E.createGame({ seed: 1 }).catalog.map(t => t.name).join('|');

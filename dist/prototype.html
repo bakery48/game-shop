@@ -2348,9 +2348,9 @@ pre {
      * 設備は「棚売り（値札売り）」を、人手は「接客（指名客）」を伸ばす。
      */
     upgrades: [
-      { id: 'warehouse', name: '倉庫を広げる', cost: 100000, max: 3,
+      { id: 'warehouse', name: '倉庫を広げる', cost: 100000, max: 5,
         effect: { shelfSlots: 50 },
-        desc: '保管できる本数が50枠増える。150本を同時所持するには必須' },
+        desc: '保管できる本数が50枠増える。全タイトルを同時所持するには必須' },
       { id: 'shelf', name: '陳列棚を増やす', cost: 80000, max: 4,
         effect: { displaySlots: 10 },
         desc: '店に並べられる本数が10増える。並べた分だけ値札で売れる' },
@@ -2369,7 +2369,7 @@ pre {
      *  'both'    … 両方
      */
     ultra: { source: 'auction' },
-    catalogSize: 150,
+    catalogSize: 200,
     catalogSeed: 20260821,
 
     tiers: {
@@ -2458,7 +2458,8 @@ pre {
               // 寂れた店には良いロットが回ってこない。週が進むほど mix に近づく
               earlyMix: { junk: 0.47, common: 0.38, mid: 0.11, rare: 0.04, ultra: 0.002 },
               mixFullFromWeek: 16,
-              mix: { junk: 0.44, common: 0.38, mid: 0.12, rare: 0.055, ultra: 0.005 } },
+              // レアの含有率は総数に連動させる（総数が増えると1本あたりの遭遇率が下がる）
+              mix: { junk: 0.44, common: 0.362, mid: 0.12, rare: 0.073, ultra: 0.008 } },
     single: { rivalRatio: [0.50, 0.95], askRatio: [0.35, 0.50],
               tierWeights: { mid: 0.18, rare: 0.70, ultra: 0.12 },
               ultraLateBonus: 0.35,   // 週が進むほど激レアが出品されやすい
@@ -2475,7 +2476,7 @@ pre {
      * 図鑑に載っている＝一度は手にしたソフトを、割増料金で指名して仕入れる。
      * 終盤に余った資金の受け皿も兼ねる。
      */
-    order: { premium: 1.6, fromWeek: 1 },
+    order: { premium: 1.6, fromWeek: 1, batch: 3 },   // 1手番でまとめて頼める本数
 
     /**
      * 周回引き継ぎ（仕様書 12 節の未決定事項）。
@@ -3104,20 +3105,31 @@ pre {
 
     } else if (key === 'order') {
       if (!unlocked(st, 'order')) return { ok: false, reason: 'locked' };
-      const t = st.byId.get(params.titleId);
-      if (!t) return { ok: false, reason: 'notitle' };
-      if (!st.registered.has(t.id)) return { ok: false, reason: 'unknown' };   // 知らない物は頼めない
-      if (ownedIds(st).has(t.id)) return { ok: false, reason: 'owned' };
-      if (freeSlots(st) <= 0) return { ok: false, reason: 'slots' };
-      const cost = orderCost(st, t);
-      if (st.cash < cost) return { ok: false, reason: 'cash' };
-      st.cash -= cost;
-      st.totals.purchases += cost;
-      st.totals.orderCount++;
-      res.spent = cost;
-      res.gained.push(t.id);
-      addItem(st, t);
-      log(st, 'order', `取り寄せ: 「${t.name}」が届いた`, -cost);
+      // まとめて頼める。titleIds でも titleId でも受ける
+      const ids = params.titleIds || [params.titleId];
+      const max = Math.max(1, st.cfg.order.batch || 1);
+      const done = [];
+      let spent = 0;
+      let stop = null;                                    // 途中で止まった理由
+      for (const id of ids.slice(0, max)) {
+        const t = st.byId.get(id);
+        if (!t) continue;
+        if (!st.registered.has(t.id)) continue;          // 知らない物は頼めない
+        if (ownedIds(st).has(t.id)) continue;
+        if (freeSlots(st) <= 0) { stop = 'slots'; break; }
+        const cost = orderCost(st, t);
+        if (st.cash < cost) { stop = 'cash'; break; }
+        st.cash -= cost;
+        st.totals.purchases += cost;
+        st.totals.orderCount++;
+        spent += cost;
+        addItem(st, t);
+        res.gained.push(t.id);
+        done.push(t.name);
+      }
+      if (!done.length) return { ok: false, reason: stop || 'none' };
+      res.spent = spent;
+      log(st, 'order', `取り寄せ: ${done.join('、')}が届いた`, -spent);
 
     } else if (key === 'upgrade') {
       const up = (st.cfg.upgrades || []).find(u => u.id === params.id);
@@ -3414,7 +3426,7 @@ pre {
     slotBuffer: 3,         // 買い取り用に空けておく枠
     keepFromWeek: 30,      // この週以降は単品を手放さない
     orderFromWeek: 44,       // この週から取り寄せでコレクションの穴を埋める
-    protectFromWeek: 20,     // この週以降は全タイトルの最後の1本を非売品にする
+    protectFromWeek: 30,     // この週以降は全タイトルの最後の1本を非売品にする
     protectRareFromWeek: 12, // レアはこの週から確保する
     rareSellUntil: 38,     // レアを売っていいのはこの週まで
     singleBidRatio: 0.85,  // 単品入札の入札額（基準相場比）
@@ -3555,7 +3567,18 @@ pre {
         .map(t => ({ t, cost: E.orderCost(st, t) }))
         .filter(x => st.cash - x.cost >= floor)
         .sort((a, b) => a.cost - b.cost);
-      if (want.length) return { key: 'order', params: { titleId: want[0].t.id } };
+      if (want.length) {
+        // 手番が足りないので、頼めるだけまとめて頼む
+        const batch = [];
+        let budget = st.cash - floor;
+        for (const w of want) {
+          if (batch.length >= (cfg.order.batch || 1) || batch.length >= slots) break;
+          if (budget - w.cost < 0) break;
+          budget -= w.cost;
+          batch.push(w.t.id);
+        }
+        if (batch.length) return { key: 'order', params: { titleIds: batch } };
+      }
     }
 
     // 3. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
@@ -3885,8 +3908,14 @@ pre {
     if (want.length) {
       const card = el('div', 'card');
       card.appendChild(el('div', 'who', '取り寄せを頼む'));
-      card.appendChild(el('div', null, `図鑑に載っているのに手元に無いソフト ${want.length}本から指名できます`));
+      const batch = Math.max(1, st.cfg.order.batch || 1);
+      card.appendChild(el('div', null,
+        `図鑑に載っているのに手元に無いソフト ${want.length}本から、1回に${batch}本まで指名できます`));
       const sel = document.createElement('select');
+      if (batch > 1) {
+        sel.multiple = true;
+        sel.size = Math.min(8, Math.max(3, want.length));
+      }
       want.slice().sort((a, b) => E.orderCost(st, a) - E.orderCost(st, b)).forEach(t => {
         const op = document.createElement('option');
         op.value = t.id;
@@ -3894,12 +3923,18 @@ pre {
         sel.appendChild(op);
       });
       card.appendChild(el('div', 'sub',
-        `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`));
+        `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`
+        + (batch > 1 ? `（Ctrl＋クリックで${batch}本まで選べます。まとめて頼んでも手番は1回）` : '')));
       const row = el('div', 'row');
       row.appendChild(sel);
       row.appendChild(btn('頼む', () => {
-        const r = E.doAction(st, 'order', { titleId: Number(sel.value) });
-        if (!r.ok) alert({ cash: '資金が足りません', slots: '棚枠が満杯です' }[r.reason] || '取り寄せできません');
+        const picked = [...sel.selectedOptions].slice(0, batch).map(o => Number(o.value));
+        if (!picked.length) { alert('取り寄せるソフトを選んでください'); return; }
+        const r = E.doAction(st, 'order', { titleIds: picked });
+        if (!r.ok) {
+          alert({ cash: '資金が足りません', slots: '棚枠が満杯です', none: '取り寄せできません' }[r.reason]
+            || '取り寄せできません');
+        }
         render();
       }, true));
       card.appendChild(row);

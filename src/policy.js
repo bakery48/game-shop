@@ -16,7 +16,7 @@
     slotBuffer: 3,         // 買い取り用に空けておく枠
     keepFromWeek: 30,      // この週以降は単品を手放さない
     orderFromWeek: 44,       // この週から取り寄せでコレクションの穴を埋める
-    protectFromWeek: 20,     // この週以降は全タイトルの最後の1本を非売品にする
+    protectFromWeek: 30,     // この週以降は全タイトルの最後の1本を非売品にする
     protectRareFromWeek: 12, // レアはこの週から確保する
     rareSellUntil: 38,     // レアを売っていいのはこの週まで
     singleBidRatio: 0.85,  // 単品入札の入札額（基準相場比）
@@ -157,7 +157,18 @@
         .map(t => ({ t, cost: E.orderCost(st, t) }))
         .filter(x => st.cash - x.cost >= floor)
         .sort((a, b) => a.cost - b.cost);
-      if (want.length) return { key: 'order', params: { titleId: want[0].t.id } };
+      if (want.length) {
+        // 手番が足りないので、頼めるだけまとめて頼む
+        const batch = [];
+        let budget = st.cash - floor;
+        for (const w of want) {
+          if (batch.length >= (cfg.order.batch || 1) || batch.length >= slots) break;
+          if (budget - w.cost < 0) break;
+          budget -= w.cost;
+          batch.push(w.t.id);
+        }
+        if (batch.length) return { key: 'order', params: { titleIds: batch } };
+      }
     }
 
     // 3. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
