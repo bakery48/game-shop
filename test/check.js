@@ -201,7 +201,7 @@ check('常連のセリフが来店回数に対して足りている', () => {
   // 1周で12〜18回来店するので、同じ言い回しの繰り返しがどれだけ残っているかを見る
   const counts = rg.regulars.map(r => (r.lines || []).length);
   const min = Math.min(...counts);
-  assert(min >= 8, `最少${min}本（1周12〜18回来店するので8本は要る）`);
+  assert(min >= 12, `最少${min}本（1周12〜18回来店するので12本は要る）`);
   // 同じ常連の中で言い回しが重複していないか
   for (const r of rg.regulars) {
     const uniq = new Set(r.lines || []).size;
