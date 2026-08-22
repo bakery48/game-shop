@@ -113,10 +113,13 @@ check('叔父の年表が並び順どおり', () => {
 check('作中の年から見た年齢がつじつま合っている', () => {
   const L = sw.lore, now = L.present;
   assert(now > sw.hardware.span[1], `現在${now}年がハードの期間内`);
-  assert(now - L.self.born === 66, `主人公が${now - L.self.born}歳（66歳のはず）`);
+  assert(now - L.self.born === 68, `主人公が${now - L.self.born}歳（68歳のはず）`);
   assert(L.uncle.died <= now, `叔父の没年${L.uncle.died}が現在より後`);
   assert(L.self.born - L.uncle.born === 20, '叔父との年齢差が20歳でない');
-  return `${now}年: 主人公${now - L.self.born}歳 / 叔父${L.uncle.died - L.uncle.born}歳で没`;
+  // 「ちょっと前に仕事を辞めてから」が通る範囲に退職年があること
+  const ago = now - (L.self.born + L.self.retiredAt);
+  assert(ago >= 1 && ago <= 5, `退職が${ago}年前では「ちょっと前」と言えない`);
+  return `${now}年: 主人公${now - L.self.born}歳 / 退職は${ago}年前 / 叔父${L.uncle.died - L.uncle.born}歳で没`;
 });
 check('図鑑に書いた年齢が発売年と生年に合う', () => {
   // 発売年を動かしたときに「当時34歳」だけ取り残される事故を防ぐ
