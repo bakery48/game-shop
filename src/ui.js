@@ -16,6 +16,24 @@
   let skipTalk = false;
   try { skipTalk = localStorage.getItem(SKIP_KEY) === '1'; } catch (e) { /* 使えなくても動く */ }
   let skipped = [];   // 直近に飛ばしたログ行
+  let readReveals = new Set();   // 読み終えた種明かし（この周のあいだだけ覚える）
+
+  /** 種明かしのカード。閉じるまで店内の先頭に残る */
+  function revealCard(key, onClose) {
+    const r = E.REVEALS[key];
+    if (!r) return null;
+    const card = el('div', 'card event');
+    card.appendChild(el('div', 'who', r.title));
+    for (const para of r.text.split('\n\n')) {
+      card.appendChild(el('p', 'detail-body', para));
+    }
+    if (onClose) {
+      const row = el('div', 'row');
+      row.appendChild(btn('閉じる', onClose, true));
+      card.appendChild(row);
+    }
+    return card;
+  }
   const yen = n => (n < 0 ? '-' : '') + '¥' + Math.abs(Math.round(n)).toLocaleString('ja-JP');
   const el = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -93,7 +111,21 @@
           + '登録済みのソフトは最初から取り寄せで狙えます'));
       }
       box.appendChild(c);
+      for (const key of ['registered', 'owned']) {
+        if (st.reveals[key] && !st.reveals[key].carried) {
+          const rc = revealCard(key, null);
+          if (rc) box.appendChild(rc);
+        }
+      }
       return;
+    }
+
+    // 種明かしが出たら、読むまで店内の先頭に居座る
+    for (const key of ['registered', 'owned']) {
+      if (st.reveals[key] && !st.reveals[key].carried && !readReveals.has(key)) {
+        const rc = revealCard(key, () => { readReveals.add(key); render(); });
+        if (rc) { box.appendChild(rc); return; }
+      }
     }
 
     if (st.phase === 'shop' && st.current) {
@@ -588,6 +620,7 @@
       previous: previous || undefined,
     });
     selected.clear();
+    readReveals = new Set();
     window.st = st;
     render();
   }

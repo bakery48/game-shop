@@ -103,6 +103,20 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 習得済みの交渉術は別セリフ＋現金`,
       alt.shown && alt.gained === 30000, `${alt.gained}円`);
 
+    // 種明かしが読めて、閉じると消えるか
+    const reveal = await page.evaluate(() => {
+      st.catalog.forEach(t => st.registered.add(t.id));
+      Engine.endTurn(st); window.renderUI();
+      const box = document.getElementById('phase');
+      const shown = box.textContent.includes('辻邦彦') && box.textContent.includes('クロスロード');
+      const leaked = box.textContent.includes('谷口誠');   // 二段目はまだ出てはいけない
+      const b = [...box.querySelectorAll('button')].find(x => x.textContent === '閉じる');
+      if (b) b.click();
+      return { shown, leaked, closed: !document.getElementById('phase').textContent.includes('辻邦彦') };
+    });
+    check(`${scheme}: 一段目の種明かしが読めて閉じられる`,
+      reveal.shown && !reveal.leaked && reveal.closed, JSON.stringify(reveal));
+
     // 50週を自動で回して落ちないか
     await page.evaluate(() => { Policy.playAll(st); window.renderUI(); });
     check(`${scheme}: 最後まで自動で回せる`, await page.evaluate(() => st.ended), errs[0]);

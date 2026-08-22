@@ -185,7 +185,7 @@
      * 資金も在庫も持ち越さないので、店の経営そのものは毎周ゼロから始まる。
      * 登録済みのソフトは最初から取り寄せで狙えるため、完全クリアが現実的になる。
      */
-    carryOver: { registered: true, skills: true, cash: false, cashRatio: 0.2, slots: false },
+    carryOver: { registered: true, skills: true, reveals: true, cash: false, cashRatio: 0.2, slots: false },
 
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
@@ -199,6 +199,25 @@
    * 石橋→ブリヂストンと同じ流儀だが、そうとは誰も言わない。
    */
   const SHOP_NAME = (DATA && DATA.lore && DATA.lore.shop) || 'クロスロード';
+
+  /**
+   * 種明かし。図鑑登録100%で叔父の正体、所持100%（真エンド）で主人公の正体。
+   * 主人公は最初から全部知っているので「気づく」のではなく「黙っていた」。
+   * 一度出たら周回を越えて出ない（carryOver.reveals）。
+   */
+  const REVEALS = (DATA && DATA.lore && DATA.lore.reveals) || {};
+  function checkReveals(st) {
+    if (st.ended) return;
+    const total = st.catalog.length;
+    const hit = [];
+    if (st.registered.size >= total) hit.push('registered');
+    if (ownedIds(st).size >= total) hit.push('owned');
+    for (const key of hit) {
+      if (st.reveals[key] || !REVEALS[key]) continue;
+      st.reveals[key] = { week: st.week, half: st.half };
+      log(st, 'reveal', REVEALS[key].title, 0);
+    }
+  }
 
   // ============================================================
   // 生成ヘルパ
@@ -900,6 +919,7 @@
   }
 
   function endTurn(st) {
+    checkReveals(st);
     if (st.half === 0) {
       st.half = 1;
       startTurn(st);
@@ -1072,7 +1092,7 @@
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
       ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
-      upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {},
+      upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {}, reveals: {},
       reputation: 0,
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0 },
     };
@@ -1094,6 +1114,8 @@
         for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
       }
       if (co.skills && prev.skills) for (const id of prev.skills) st.skills[id] = true;
+      // 一度知ったことは知ったまま。次の周でもう一度明かされたりしない
+      if (co.reveals && prev.reveals) for (const k of prev.reveals) st.reveals[k] = { carried: true };
       if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
       if (co.slots && prev.shelfSlots) {
         st.cfg = cfg = Object.assign({}, cfg, { shelfSlots: Math.max(cfg.shelfSlots, prev.shelfSlots) });
@@ -1121,8 +1143,9 @@
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
+      reveals: Object.keys(st.reveals || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
       (e && e.skill && st.skills[e.skill] && e.skillKnown) ? e.skillKnown : null,

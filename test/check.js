@@ -408,6 +408,51 @@ check('判断が要る客は会話スキップの対象外', () => {
   for (const c of no) assert(!E.skippable(c), `${c.type} を飛ばしてしまう`);
 });
 
+check('種明かしのテキストが揃っている', () => {
+  const R = sw.lore.reveals;
+  for (const k of ['registered', 'owned']) {
+    assert(R[k] && R[k].title && R[k].text, `${k} が無い`);
+    assert(R[k].text.length > 200, `${k} が${R[k].text.length}文字と短い`);
+  }
+  // 一段目で叔父、二段目で主人公。逆や取り違えを防ぐ
+  assert(R.registered.text.includes(sw.lore.uncle.name), '一段目に叔父の名前が無い');
+  assert(!R.registered.text.includes(sw.lore.self.name), '一段目で主人公を名乗ってしまっている');
+  assert(R.owned.text.includes(sw.lore.self.name), '二段目に主人公の名前が無い');
+  assert(R.registered.text.includes(sw.lore.shop), '一段目で屋号の暗号を明かしていない');
+  return `一段目${R.registered.text.length}字 / 二段目${R.owned.text.length}字`;
+});
+check('図鑑を全部登録すると一段目が出る', () => {
+  const st = E.createGame({ seed: 1 });
+  st.catalog.forEach(t => st.registered.add(t.id));
+  E.endTurn(st);
+  assert(st.reveals.registered, '発火していない');
+  assert(!st.reveals.owned, '所持していないのに二段目が出ている');
+  return `${st.reveals.registered.week}週目に発火`;
+});
+check('全部所持すると二段目が出る', () => {
+  const st = E.createGame({ seed: 1, balance: { shelfSlots: 999 } });
+  st.catalog.forEach(t => { st.registered.add(t.id); });
+  // 在庫を全タイトルで満たす
+  for (const t of st.catalog) {
+    if (!E.ownedIds(st).has(t.id)) st.inv.push({ uid: 'x' + t.id, titleId: t.id, weeks: 0 });
+  }
+  const before = E.ownedIds(st).size;
+  assert(before === st.catalog.length, `所持が${before}/${st.catalog.length}で揃っていない`);
+  E.endTurn(st);   // この後の値札売りで減るので、判定は endTurn の先頭で行われる
+  assert(st.reveals.owned, '発火していない');
+  return `所持${before}/${st.catalog.length}で発火`;
+});
+check('種明かしは次の周で繰り返さない', () => {
+  const a = E.createGame({ seed: 1 });
+  a.catalog.forEach(t => a.registered.add(t.id));
+  E.endTurn(a);
+  assert(a.reveals.registered, '1周目で発火していない');
+  const b = E.createGame({ seed: 2, previous: E.carryFrom(a) });
+  assert(b.reveals.registered && b.reveals.registered.carried,
+    '引き継がれていない（次の周でもう一度明かされてしまう）');
+  return '引き継ぎ済みとして持ち越す';
+});
+
 // ---------------- 5. 周回引き継ぎ ----------------
 section('周回引き継ぎ');
 check('図鑑と交渉術が次の周に残る', () => {
