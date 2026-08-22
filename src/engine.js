@@ -59,7 +59,7 @@
       enabled: true,
       start: 0, min: 0, max: 100,
       customers: [1, 6],          // 評判 0 → 100 のときの来客数
-      passive: [4, 13],           // 同じく店頭の自動売上の本数
+      passive: [5, 16],           // 同じく店頭の値札売りの本数（安いぶん数は出る）
       customerNoise: 1,           // 来客数のターンごとのブレ
       gainFalloff: 0.5,           // 評判が高いほど上がりにくくなる強さ（0で逓減なし）
       sellerRareBonus: 0.10,      // 評判100で持ち込みのレア率が+10ポイント（劇的にはしない）
@@ -84,7 +84,12 @@
      * 仕様書 2 節の「客3〜4人」は"判断が要る客"の数として扱い、
      * それ以外の一般客はまとめて自動処理する。これが無いと家賃を払える売上に届かない。
      */
-    passiveSales: { count: [7, 12], priceRange: [0.90, 1.05],
+    /**
+     * 店頭の値札売り。棚に並べた＝値札を付けた、ということなので相場より安くしか売れない。
+     * 客が勝手に手に取ってレジに持ってくるだけで、店主が値段を言う場面がないため。
+     * 安いぶん回転は速い。
+     */
+    passiveSales: { count: [7, 12], priceRange: [0.78, 0.90],
                     // 寂れた店には客も来ない。品揃えが増えるにつれて客足が戻る
                     earlyCount: [5, 9], fullFromWeek: 16 },
 
@@ -104,7 +109,9 @@
       front: { count: [3, 4], weights: { seller: 0.45, buyer: 0.35, browser: 0.20 } },
       back:  { count: [4, 5], weights: { seller: 0.25, buyer: 0.60, browser: 0.15 } },
     },
-    buyerOfferRange: [0.85, 1.15],   // 基準相場に対する客の提示額
+    // 指名客の提示額。探し回った末に「〇〇ありますか」と尋ねに来る客なので、
+    // 値札に縛られず相場かそれ以上を出す
+    buyerOfferRange: [0.95, 1.25],
     buyerSecondItemChance: 0.25,     // ついで買い
     sellerAskRange: [0.80, 1.50],    // 買取目安に対する持ち込み希望額
     sellerTierWeights: { common: 0.62, mid: 0.28, rare: 0.10, ultra: 0 }, // 激レアは持ち込まれない

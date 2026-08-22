@@ -109,10 +109,22 @@
         p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
         p.appendChild(el('span', null, ` を ${yen(c.offer)} で売ってほしい`));
         card.appendChild(p);
+        // 値札との差を見せる（棚から勝手に売れる分より指名客のほうが高く払う）
+        const item = st.inv.find(i => i.uid === c.uid);
+        const tag = item ? Math.round(E.priceOf(st, item)
+          * (st.cfg.passiveSales.priceRange[0] + st.cfg.passiveSales.priceRange[1]) / 2 / 100) * 100 : null;
         card.appendChild(el('div', 'sub',
           `${t.year}年 / ${t.maker} / ${t.tierLabel}`
           + (t.rating != null ? ` / 評価${t.rating.toFixed(1)}` : '')
           + `｜基準相場 ${yen(t.base)}｜所持 ${E.countOf(st, t.id)}本`));
+        if (tag) {
+          const diff = Math.round((c.offer / tag - 1) * 100);
+          const d = el('div');
+          d.appendChild(el('span', 'sub', `棚に出しておけばおよそ ${yen(tag)}。`));
+          d.appendChild(el('span', diff > 0 ? 'ok' : 'warn',
+            ` この客は${diff >= 0 ? '+' : ''}${diff}%`));
+          card.appendChild(d);
+        }
         showDetail(t.id);
         if (E.countOf(st, t.id) <= 1) {
           card.appendChild(el('div', 'warn', '※ 最後の1本です。売ると所持率が下がります'));
@@ -288,7 +300,7 @@
     const tb = $('inv');
     tb.innerHTML = '';
     const head = tb.insertRow();
-    ['', 'タイトル', 'ハード', '希少', '売値', '陳列', '非売品', '値下'].forEach((h, i) => {
+    ['', 'タイトル', 'ハード', '希少', '相場', '陳列', '非売品', '値下'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
       if (i === 4) th.className = 'num';
