@@ -25,7 +25,7 @@
   const BALANCE = {
     totalWeeks: 50,        // αテスト版は 10 で作る（UIの「範囲」で切り替え）
     rent: 30000,
-    startCash: 100000,
+    startCash: 175000,
     startInventory: 30,
     shelfSlots: 50,          // 保管も含めた総枠
     displaySlots: 20,        // うち店頭陳列できる数
@@ -50,6 +50,36 @@
     },
 
     /**
+     * 評判（0〜100）。開店時は最低で、商売の仕方によって上下する。
+     *  - 来客数（判断が要る客）が 1〜6 人の範囲で増減する
+     *  - 店頭の自動売上（賑わい）も連動する
+     *  - 客が持ち込むソフトの希少度がわずかに上がる
+     */
+    reputation: {
+      enabled: true,
+      start: 0, min: 0, max: 100,
+      customers: [1, 6],          // 評判 0 → 100 のときの来客数
+      passive: [4, 13],           // 同じく店頭の自動売上の本数
+      customerNoise: 1,           // 来客数のターンごとのブレ
+      gainFalloff: 0.5,           // 評判が高いほど上がりにくくなる強さ（0で逓減なし）
+      sellerRareBonus: 0.10,      // 評判100で持ち込みのレア率が+10ポイント（劇的にはしない）
+      gain: {
+        buyFromCustomer: 1.5,     // 持ち込みを買い取った
+        refuseSeller: -0.6,       // 持ち込みを断った
+        sellToCustomer: 0.5,      // 指名買いに応じた
+        refuseBuyer: -0.8,        // 指名買いを断った
+        markdownSold: 0.4,        // 値下げ品が売れた
+        shelfFull: 3.0,           // 週末: 陳列枠の充実度に応じて（これが立ち上げの起点）
+        rareOnShelf: 0.5,         // 週末: 陳列中／確保中のレア以上1本につき（上限6本ぶん）
+        junkOnShelf: -0.25,       // 週末: 陳列中のガラクタ1本につき
+        emptyShelf: -2,           // 週末: 棚に売り物が無い
+        loseRare: -1.2,           // レア以上の最後の1本を手放した
+        forcedSale: -6,           // 家賃が払えず在庫を毟られた
+        weeklyDrift: -0.5,        // 何もしなければ少しずつ忘れられる
+      },
+    },
+
+    /**
      * 店頭の通常売上（判断不要）。
      * 仕様書 2 節の「客3〜4人」は"判断が要る客"の数として扱い、
      * それ以外の一般客はまとめて自動処理する。これが無いと家賃を払える売上に届かない。
@@ -62,7 +92,7 @@
      * 常連キャラ（仕様書 8 節）。data/regulars.json の内容が使われる。
      * 来店回数が visitThresholds に達するとイベントが発生する。
      */
-    regulars: { visitChance: 0.35, enabled: true },
+    regulars: { visitChance: 0.45, enabled: true },
 
     // 店番（＝売る／売らないの判断が発生する客）
     customers: {
@@ -202,6 +232,7 @@
     return {
       week: st.week, half: st.half, cash: st.cash,
       inventory: st.inv.length, slots: st.cfg.shelfSlots, displaySlots: st.cfg.displaySlots,
+      reputation: Math.round(st.reputation * 10) / 10,
       junk: st.inv.filter(i => i.junk).length,
       displayed: displayed(st).length,
       registered: st.registered.size,
@@ -238,6 +269,8 @@
     if (!item.junk && countOf(st, item.titleId) === 0) {
       st.soldOnce.add(item.titleId);                      // 買い戻し導線
       st.lost[cause || 'other'] = (st.lost[cause || 'other'] || 0) + 1;   // 所持率が削れた経路
+      const t = titleOf(st, item);
+      if (t && (t.tier === 'rare' || t.tier === 'ultra')) rep(st, st.cfg.reputation.gain.loseRare);
     }
     return item;
   }
@@ -335,7 +368,16 @@
 
   function buildQueue(st) {
     const cfg = st.cfg.customers[st.half === 0 ? 'front' : 'back'];
-    const n = rInt(st.rng, cfg.count[0], cfg.count[1]);
+    const rc = st.cfg.reputation;
+    let n;
+    if (rc.enabled) {
+      // 評判で来客数が決まる。後半（週末）は少し多い
+      const base = byRep(st, rc.customers) + (st.half === 1 ? 0.6 : 0);
+      const noise = rInt(st.rng, -rc.customerNoise, rc.customerNoise);
+      n = Math.max(rc.customers[0], Math.min(rc.customers[1], Math.round(base) + noise));
+    } else {
+      n = rInt(st.rng, cfg.count[0], cfg.count[1]);
+    }
     const queue = [];
     for (let i = 0; i < n; i++) {
       if (st.cfg.regulars.enabled && REGULARS.length && st.rng() < st.cfg.regulars.visitChance) {
@@ -429,7 +471,16 @@
       return { type: 'buyer', uid: item.uid, titleId: t.id, offer };
     }
     if (type === 'seller') {
-      const tier = pickTier(st.rng, st.cfg.sellerTierWeights);
+      const w = Object.assign({}, st.cfg.sellerTierWeights);
+      const rc = st.cfg.reputation;
+      if (rc.enabled && rc.sellerRareBonus) {
+        // 評判が高いほど良い物が持ち込まれる（劇的にはしない）
+        const b = repRate(st) * rc.sellerRareBonus;
+        w.rare = (w.rare || 0) + b;
+        w.mid = (w.mid || 0) + b * 0.5;
+        w.common = Math.max(0.05, (w.common || 0) - b * 1.5);
+      }
+      const tier = pickTier(st.rng, w);
       const t = pickTitle(st, tier, { byDemand: true });
       if (!t) return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
       const r = st.cfg.sellerAskRange;
@@ -453,10 +504,16 @@
     }
     const result = { customer: c, accepted: false, reason: null };
 
+    // 断ると評判が下がる
+    if (!yes && c.type === 'buyer') rep(st, st.cfg.reputation.gain.refuseBuyer);
+    if (!yes && c.type === 'seller') rep(st, st.cfg.reputation.gain.refuseSeller);
+
     if (c.type === 'buyer' && yes) {
       const item = st.inv.find(i => i.uid === c.uid);
       if (item) {
         const t = titleOf(st, item);
+        if (item.markdown) rep(st, st.cfg.reputation.gain.markdownSold);
+        rep(st, st.cfg.reputation.gain.sellToCustomer);
         removeItem(st, c.uid, 'buyer');
         st.cash += c.offer;
         st.totals.sales += c.offer;
@@ -489,6 +546,7 @@
         st.totals.purchases += c.ask;
         st.totals.boughtCount++;
         addItem(st, t, { display: true });
+        rep(st, st.cfg.reputation.gain.buyFromCustomer);
         result.accepted = true;
         log(st, 'buy', `「${t.name}」を買い取った`, -c.ask);
       }
@@ -533,6 +591,26 @@
   }
 
   const unlocked = (st, key) => st.week >= (st.cfg.unlock[key] || 1);
+
+  /**
+   * 評判を動かす。0〜100 に収める。
+   * 上げ幅は評判が高いほど小さくなる（逓減）。寂れた店が有名になるのは速いが、
+   * 名店がさらに名を上げるのは難しい。下げ幅には逓減をかけない。
+   */
+  function rep(st, delta) {
+    const c = st.cfg.reputation;
+    if (!c.enabled || !delta) return;
+    if (delta > 0) delta *= Math.pow(1 - repRate(st), c.gainFalloff);
+    st.reputation = Math.max(c.min, Math.min(c.max, st.reputation + delta));
+  }
+  /** 評判の 0〜1 正規化 */
+  const repRate = st => {
+    const c = st.cfg.reputation;
+    if (!c.enabled) return 1;
+    return (st.reputation - c.min) / Math.max(1, c.max - c.min);
+  };
+  /** 評判から決まる値を線形補間する */
+  const byRep = (st, range) => range[0] + repRate(st) * (range[1] - range[0]);
 
   function generateOffers(st) {
     const cfg = st.cfg;
@@ -732,7 +810,32 @@
     }
   }
 
+  /** 週末に棚の中身を評価する。珍しいものを置いている店は評判が上がる */
+  function appraiseShelf(st) {
+    const c = st.cfg.reputation;
+    if (!c.enabled) return;
+    const shelf = st.inv.filter(i => i.display);
+    const good = shelf.filter(i => {
+      const t = titleOf(st, i);
+      return t && (t.tier === 'rare' || t.tier === 'ultra');
+    }).length;
+    const junk = shelf.filter(i => i.junk).length;
+    // 非売品として抱えているレアも「あの店にはある」と伝わる
+    const kept = st.inv.filter(i => {
+      const t = titleOf(st, i);
+      return i.protect && t && (t.tier === 'rare' || t.tier === 'ultra');
+    }).length;
+    let d = c.gain.weeklyDrift;
+    // 棚がどれだけ埋まっているか。品揃えのある店は客足が戻る
+    d += Math.min(1, shelf.length / Math.max(1, st.cfg.displaySlots)) * c.gain.shelfFull;
+    d += Math.min(6, good + kept * 0.5) * c.gain.rareOnShelf;
+    d += Math.min(10, junk) * c.gain.junkOnShelf;
+    if (!forSale(st).length) d += c.gain.emptyShelf;
+    rep(st, d);
+  }
+
   function payRent(st) {
+    appraiseShelf(st);
     const rent = st.cfg.rent;
     let forced = 0, forcedCount = 0;
 
@@ -752,7 +855,10 @@
         st.cash += price;
         forced += price; forcedCount++;
       }
-      if (forcedCount) log(st, 'forced', `家賃のため在庫${forcedCount}点を強制売却`, forced);
+      if (forcedCount) {
+        rep(st, st.cfg.reputation.gain.forcedSale);
+        log(st, 'forced', `家賃のため在庫${forcedCount}点を強制売却`, forced);
+      }
     }
 
     const snapshot = Object.assign(stats(st), { forcedCount, forcedAmount: forced });
@@ -796,7 +902,13 @@
   function resolvePassiveSales(st) {
     const ps = st.cfg.passiveSales;
     let lo = ps.count[0], hi = ps.count[1];
-    if (ps.earlyCount) {
+    const rc = st.cfg.reputation;
+    if (rc.enabled) {
+      // 賑わいは評判に連動する。序盤の客足の伸びとも掛け合わせる
+      const center = byRep(st, rc.passive);
+      lo = Math.max(0, center - 2);
+      hi = center + 2;
+    } else if (ps.earlyCount) {
       const t = Math.max(0, Math.min(1, (st.week - 1) / Math.max(1, (ps.fullFromWeek || 1) - 1)));
       lo = ps.earlyCount[0] + t * (ps.count[0] - ps.earlyCount[0]);
       hi = ps.earlyCount[1] + t * (ps.count[1] - ps.earlyCount[1]);
@@ -855,6 +967,7 @@
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
       ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
+      reputation: 0,
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0 },
     };
 
@@ -880,6 +993,7 @@
       }
       st.carriedOver = true;
     }
+    st.reputation = cfg.reputation.enabled ? cfg.reputation.start : cfg.reputation.max;
     st.startRegistered = st.registered.size;
     st.run = prev ? (prev.run || 1) + 1 : 1;
     log(st, 'start', `開店。資金${st.cash.toLocaleString()}円、在庫${st.inv.length}点。`
@@ -895,6 +1009,6 @@
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep,
   };
 });

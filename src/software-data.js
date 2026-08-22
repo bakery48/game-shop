@@ -146,10 +146,10 @@
 }, {
   "$comment": "常連キャラとイベント（仕様書 8 節）。events の at は『来店回数』のしきい値。data/software.json のタイトルと紐づいている。",
   "visitThresholds": [
-    3,
-    8,
-    14,
-    20
+    2,
+    6,
+    11,
+    16
   ],
   "regulars": [
     {

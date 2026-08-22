@@ -28,6 +28,12 @@
     };
     add('周', `${st.run || 1}周目` + (st.startRegistered ? `（図鑑${st.startRegistered}本から）` : ''));
     add('週', `${s.week} / ${st.cfg.totalWeeks}`);
+    if (st.cfg.reputation.enabled) {
+      const r = s.reputation;
+      const label = r >= 85 ? '名店' : r >= 65 ? '評判の店' : r >= 40 ? '知られてきた'
+                  : r >= 20 ? '常連がつき始めた' : r >= 8 ? '細々と' : '寂れている';
+      add('評判', `${Math.round(r)} ${label}`, r >= 40 ? 'ok' : r < 8 ? 'warn' : null);
+    }
     add('ターン', E.HALF_LABEL[s.half]);
     add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
     add('家賃', yen(st.cfg.rent) + (rentSoon ? ' 今週末' : ''), rentSoon ? 'warn' : null);
@@ -151,6 +157,12 @@
     // 行動フェイズ
     const o = st.offers;
     box.appendChild(el('div', 'sub', '行動フェイズ — 1つ選ぶとターンが終わります'));
+    if (st.cfg.reputation.enabled) {
+      const rc = st.cfg.reputation;
+      box.appendChild(el('div', 'sub',
+        `評判 ${Math.round(st.reputation)}：来客はおよそ${Math.round(E.byRep(st, rc.customers))}人／ターン。`
+        + '棚を埋める・買い取りに応じる・珍しいものを置くと上がり、断る・売り物を切らすと下がります'));
+    }
 
     const mk = (title, detail, label, fn, disabled, note) => {
       const card = el('div', 'card');
