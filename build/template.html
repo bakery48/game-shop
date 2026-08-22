@@ -102,6 +102,9 @@ label { display:inline-flex; gap:5px; align-items:center; font-size:13px; }
 
 /* ── 客・行動のカード ────────────────────────────────────── */
 .card { border:1px solid var(--rule-soft); border-left:3px solid var(--accent); background:var(--sunk); padding:9px 11px; }
+.card.regular { border-left-color:var(--info); }
+.card.event { border-left-color:var(--gold); border-left-width:5px; background:var(--panel); }
+.card.event .detail-body { margin:4px 0 2px; }
 .card + .card { margin-top:8px; }
 .card .who {
   font-family:"DotGothic16",monospace; font-size:12px; letter-spacing:.1em;
@@ -169,6 +172,12 @@ pre {
           <button id="btnAll">最後まで自動</button>
           <button id="btnNew">新しく始める</button>
           <button id="btnCarry">次の周へ（図鑑を引き継ぐ）</button>
+          <label class="sub">範囲
+            <select id="weeks">
+              <option value="10">αテスト版（10週）</option>
+              <option value="50" selected>50週フル</option>
+            </select>
+          </label>
           <label class="sub">seed <input type="number" id="seed" value="1"></label>
           <button id="btnSim">シミュレーション100回</button>
         </div>
@@ -185,7 +194,12 @@ pre {
       <div id="log"></div>
     </div>
 
-    <div class="panel full">
+    <div class="panel">
+      <h2>常連 <span class="sub">来店を重ねるとイベントが起きる</span></h2>
+      <table id="regulars"></table>
+    </div>
+
+    <div class="panel">
       <h2>ソフトの詳細</h2>
       <div class="body" id="detail"></div>
     </div>

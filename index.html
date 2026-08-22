@@ -55,6 +55,12 @@
       <button id="btnAll">最後まで自動</button>
       <button id="btnNew">新しく始める</button>
       <button id="btnCarry">次の周へ（図鑑を引き継ぐ）</button>
+      <span class="sub">範囲
+        <select id="weeks">
+          <option value="10">αテスト版（10週）</option>
+          <option value="50" selected>50週フル</option>
+        </select>
+      </span>
       <span class="sub">seed <input type="number" id="seed" value="1" style="width:70px"></span>
       <button id="btnSim">シミュレーション100回</button>
     </div>
@@ -70,7 +76,12 @@
     <div id="log"></div>
   </div>
 
-  <div class="panel full">
+  <div class="panel">
+    <h2>常連</h2>
+    <table id="regulars"></table>
+  </div>
+
+  <div class="panel">
     <h2>ソフトの詳細</h2>
     <div id="detail"></div>
   </div>

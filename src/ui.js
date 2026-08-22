@@ -45,7 +45,8 @@
 
     if (st.ended) {
       const name = { true: '真エンド（全150本を同時所持）', normal: 'ノーマルエンド（図鑑は完成、所持は未達）',
-                     bad: 'バッドエンド（家賃を払えず閉店）', incomplete: '未達成' }[st.ending];
+                     bad: 'バッドエンド（家賃を払えず閉店）', incomplete: '未達成',
+                     demo: `体験版はここまで（${st.cfg.totalWeeks}週）` }[st.ending];
       const c = el('div', 'card');
       c.appendChild(el('div', 'who', 'ゲーム終了 — ' + name));
       const s = st.result || E.stats(st);
@@ -63,9 +64,41 @@
     if (st.phase === 'shop' && st.current) {
       const c = st.current;
       const card = el('div', 'card');
+      if (c.regular) {
+        card.classList.add('regular');
+        const w = el('div', 'who');
+        w.textContent = `${c.regular.name}（${c.regular.title}）`;
+        w.appendChild(el('span', 'sub', `　${c.regular.visits}回目の来店`));
+        card.appendChild(w);
+      }
+      if (c.type === 'event') {
+        card.classList.add('event');
+        if (!c.regular) card.appendChild(el('div', 'who', 'イベント'));
+        card.appendChild(el('p', 'detail-body', c.event.text));
+        const row = el('div', 'row');
+        if (c.event.type === 'offer') {
+          const t = st.catalog.find(x => x.name === c.event.title);
+          if (t) {
+            const price = Math.round(t.base * c.event.priceRatio / 100) * 100;
+            card.appendChild(el('div', 'sub',
+              `「${t.name}」／${t.tierLabel}／基準相場 ${yen(t.base)} → ${yen(price)}`));
+            showDetail(t.id);
+            const canBuy = st.cash >= price && E.freeSlots(st) > 0;
+            row.appendChild(btn('買い取る', () => { E.answer(st, true); render(); }, true, !canBuy));
+            row.appendChild(btn('断る', () => { E.answer(st, false); render(); }));
+            if (!canBuy) row.appendChild(el('span', 'warn', st.cash < price ? '資金不足' : '棚枠が満杯'));
+          }
+        } else {
+          row.appendChild(btn('次へ', () => { E.answer(st, true); render(); }, true));
+        }
+        card.appendChild(row);
+        box.appendChild(card);
+        box.appendChild(el('div', 'sub', `この後あと${st.queue.length}人`));
+        return;
+      }
       if (c.type === 'buyer') {
         const t = st.byId.get(c.titleId);
-        card.appendChild(el('div', 'who', '買いに来た客'));
+        if (!c.regular) card.appendChild(el('div', 'who', '買いに来た客'));
         const p = el('div');
         p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
         p.appendChild(el('span', null, ` を ${yen(c.offer)} で売ってほしい`));
@@ -85,7 +118,7 @@
       } else if (c.type === 'seller') {
         const t = st.byId.get(c.titleId);
         const owned = E.ownedIds(st).has(t.id);
-        card.appendChild(el('div', 'who', '売りに来た客'));
+        if (!c.regular) card.appendChild(el('div', 'who', '売りに来た客'));
         const p = el('div');
         p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
         p.appendChild(el('span', null, ` を ${yen(c.ask)} で買い取ってほしい`));
@@ -103,7 +136,7 @@
         if (!canBuy) row.appendChild(el('span', 'warn', st.cash < c.ask ? '資金不足' : '棚枠が満杯'));
         card.appendChild(row);
       } else {
-        card.appendChild(el('div', 'who', '冷やかし'));
+        if (!c.regular) card.appendChild(el('div', 'who', '冷やかし'));
         card.appendChild(el('div', null, c.line));
         const row = el('div', 'row');
         row.appendChild(btn('次へ', () => { E.answer(st, false); render(); }, true));
@@ -406,8 +439,38 @@
     }
   }
 
+  // ---------------- 常連 ----------------
+  function renderRegulars() {
+    const tb = $('regulars');
+    if (!tb) return;
+    tb.innerHTML = '';
+    const head = tb.insertRow();
+    ['常連', '素性', '来店', '次のイベントまで'].forEach((h, i) => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      if (i === 2) th.className = 'num';
+      head.appendChild(th);
+    });
+    for (const r of E.REGULARS) {
+      const s = st.regulars[r.id] || { visits: 0, fired: 0 };
+      const row = tb.insertRow();
+      row.insertCell().textContent = r.name;
+      const tc = row.insertCell();
+      tc.textContent = s.visits > 0 ? r.title : '——';
+      tc.className = s.visits > 0 ? '' : 'sub';
+      const vc = row.insertCell();
+      vc.textContent = s.visits + '回';
+      vc.className = 'num';
+      const next = E.THRESHOLDS[s.fired];
+      const nc = row.insertCell();
+      if (next === undefined) { nc.textContent = 'すべて見た'; nc.className = 'ok'; }
+      else if (s.visits === 0) { nc.textContent = 'まだ来ていない'; nc.className = 'sub'; }
+      else { nc.textContent = `あと${Math.max(0, next - s.visits)}回（${s.fired}/${E.THRESHOLDS.length}）`; }
+    }
+  }
+
   function render() {
-    renderStat(); renderPhase(); renderInv(); renderDex(); renderLog(); renderDetail();
+    renderStat(); renderPhase(); renderInv(); renderDex(); renderLog(); renderDetail(); renderRegulars();
   }
   window.renderUI = render;   // デバッグ用
 
@@ -415,7 +478,12 @@
   let lastRun = null;   // 前周の記録（図鑑の引き継ぎ用）
 
   function newGame(previous) {
-    st = E.createGame({ seed: Number($('seed').value) || 1, previous: previous || undefined });
+    const sel = $('weeks');
+    st = E.createGame({
+      seed: Number($('seed').value) || 1,
+      balance: { totalWeeks: sel ? Number(sel.value) : 50 },
+      previous: previous || undefined,
+    });
     selected.clear();
     window.st = st;
     render();
@@ -432,6 +500,7 @@
   $('btnWeek').onclick = () => { const w = st.week; while (!st.ended && st.week === w) P.playTurn(st); render(); };
   $('btnAll').onclick = () => { P.playAll(st); render(); };
   $('dexMissing').onchange = renderDex;
+  if ($('weeks')) $('weeks').onchange = () => { lastRun = null; newGame(); };
   $('btnWholesale').onclick = () => {
     if (!selected.size) { alert('在庫表で卸す在庫を選んでください'); return; }
     E.wholesale(st, Array.from(selected));

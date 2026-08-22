@@ -72,6 +72,7 @@
       seen.set(t.id, nth);
       const isLast = nth === 1;                     // このタイトルの確保用の1本
       // 重複は常に売り物。最後の1本は、守る時期に入っていれば非売品にする
+      // 総週数が短い体験版では確保の局面まで進まない。売り続けるのが正しい
       const guard = isLast && (st.week >= TUNING.protectFromWeek
         || t.tier === 'ultra'
         || (t.tier === 'rare' && st.week >= TUNING.protectRareFromWeek));
@@ -110,6 +111,19 @@
     // 資金を作るついでにガラクタも捨てる
     for (const c of cand) if (c.score === 0 && !out.includes(c.item.uid)) out.push(c.item.uid);
     return out;
+  }
+
+  /** 常連イベントへの応答。offer 型だけが判断を要する */
+  function eventDecision(st, c) {
+    if (c.event.type !== 'offer') return true;
+    const t = st.catalog.find(x => x.name === c.event.title);
+    if (!t) return false;
+    const price = Math.round(t.base * c.event.priceRatio / 100) * 100;
+    if (E.freeSlots(st) <= 0) return false;
+    if (st.cash - price < st.cfg.rent) return false;
+    // 常連の持ち込みは相場より安い。未所持なら多少高くても取る
+    const limit = E.ownedIds(st).has(t.id) ? t.base * 0.5 : t.base * 0.8;
+    return price <= limit;
   }
 
   /** 行動フェイズの選択 */
@@ -193,6 +207,7 @@
       const c = st.current;
       if (c.type === 'buyer') E.answer(st, sellDecision(st, c));
       else if (c.type === 'seller') E.answer(st, buyDecision(st, c));
+      else if (c.type === 'event') E.answer(st, eventDecision(st, c));
       else E.answer(st, false);
     }
     if (st.phase === 'action') {

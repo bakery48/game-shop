@@ -23,7 +23,7 @@
   // バランス定数（調整はすべてここ）
   // ============================================================
   const BALANCE = {
-    totalWeeks: 50,
+    totalWeeks: 50,        // αテスト版は 10 で作る（UIの「範囲」で切り替え）
     rent: 30000,
     startCash: 100000,
     startInventory: 30,
@@ -38,7 +38,7 @@
      *  'auction' … オークションで購入できる（終盤の資金の受け皿になる）
      *  'both'    … 両方
      */
-    ultra: { source: 'both', eventFromWeek: 12, eventEveryWeeks: 2, maxEvents: 15 },
+    ultra: { source: 'auction' },
     catalogSize: 150,
     catalogSeed: 20260821,
 
@@ -57,6 +57,12 @@
     passiveSales: { count: [7, 12], priceRange: [0.90, 1.05],
                     // 寂れた店には客も来ない。品揃えが増えるにつれて客足が戻る
                     earlyCount: [5, 9], fullFromWeek: 16 },
+
+    /**
+     * 常連キャラ（仕様書 8 節）。data/regulars.json の内容が使われる。
+     * 来店回数が visitThresholds に達するとイベントが発生する。
+     */
+    regulars: { visitChance: 0.35, enabled: true },
 
     // 店番（＝売る／売らないの判断が発生する客）
     customers: {
@@ -133,8 +139,10 @@
       if (opts.byDemand) w *= s.demand;
       if (st.soldOnce.has(s.id)) w *= st.cfg.reacquireBoost;   // 詰み対策
       if (opts.ownedPenalty && owned.has(s.id)) w *= opts.ownedPenalty;
+      if (opts.unregisteredOnly && st.registered.has(s.id)) w = 0;   // まだ存在を知らないものだけ
       return [s, w];
     });
+    if (!pairs.some(p => p[1] > 0)) return null;
     return rWeighted(st.rng, pairs);
   }
 
@@ -276,15 +284,119 @@
   // ============================================================
   // 店番フェイズ
   // ============================================================
+  const REGULARS = (Catalog.DATA && Catalog.DATA.regulars) || [];
+  const THRESHOLDS = (Catalog.DATA && Catalog.DATA.visitThresholds) || [3, 8, 14, 20];
+
+  /** 常連の来店記録。まだ無ければ作る */
+  function regState(st, id) {
+    if (!st.regulars[id]) st.regulars[id] = { visits: 0, fired: 0 };
+    return st.regulars[id];
+  }
+
+  /** 次に来る常連を選ぶ。イベントが近い人ほど来やすい */
+  function pickRegular(st) {
+    if (!REGULARS.length) return null;
+    const pool = REGULARS.map(r => {
+      const s = regState(st, r.id);
+      const next = THRESHOLDS[s.fired];
+      // まだイベントが残っている常連を優先する
+      const eager = next === undefined ? 0.3 : 1 + Math.max(0, 1 - (next - s.visits) / 6);
+      return [r, (r.weight || 1) * eager];
+    });
+    return rWeighted(st.rng, pool);
+  }
+
+  /** 常連の来店を1件作る。しきい値に達していればイベントになる */
+  function makeRegularCustomer(st) {
+    const r = pickRegular(st);
+    if (!r) return null;
+    const s = regState(st, r.id);
+    s.visits++;
+    const who = { id: r.id, name: r.name, title: r.title, visits: s.visits };
+    const next = THRESHOLDS[s.fired];
+    if (next !== undefined && s.visits >= next && r.events[s.fired]) {
+      s.fired++;
+      return { type: 'event', regular: who, event: r.events[s.fired - 1] };
+    }
+    // イベント以外の日は普通の客と同じように振る舞う（売買の回数を減らさない）
+    const w = st.cfg.customers[st.half === 0 ? 'front' : 'back'].weights;
+    const type = rWeighted(st.rng, Object.keys(w).map(k => [k, w[k]]));
+    const c = makeCustomer(st, type);
+    c.regular = who;
+    if (c.type === 'browser' && r.lines && r.lines.length) c.line = rPick(st.rng, r.lines);
+    return c;
+  }
+
   function buildQueue(st) {
     const cfg = st.cfg.customers[st.half === 0 ? 'front' : 'back'];
     const n = rInt(st.rng, cfg.count[0], cfg.count[1]);
     const queue = [];
     for (let i = 0; i < n; i++) {
+      if (st.cfg.regulars.enabled && REGULARS.length && st.rng() < st.cfg.regulars.visitChance) {
+        const c = makeRegularCustomer(st);
+        if (c) { queue.push(c); continue; }
+      }
       const type = rWeighted(st.rng, Object.keys(cfg.weights).map(k => [k, cfg.weights[k]]));
       queue.push(makeCustomer(st, type));
     }
     return queue;
+  }
+
+  /** 常連イベントの効果を適用する。yes は offer 型で買うかどうか */
+  function resolveEvent(st, c, yes) {
+    const e = c.event, who = c.regular;
+    const res = { kind: e.type, gained: null, spent: 0 };
+    const byTitle = name => st.catalog.find(t => t.name === name);
+
+    if (e.type === 'cash') {
+      st.cash += e.amount;
+      res.spent = -e.amount;
+      log(st, 'event', `${who.name}: ${e.text}`, e.amount);
+
+    } else if (e.type === 'info') {
+      // 存在を知る＝図鑑に登録される。取り寄せで狙えるようになる
+      const t = pickTitle(st, e.tier, { ownedPenalty: 1, unregisteredOnly: true });
+      if (t) {
+        st.registered.add(t.id);
+        res.gained = t.id;
+        log(st, 'event', `${who.name}: ${e.text}（図鑑に「${t.name}」が載った）`, 0);
+      } else {
+        log(st, 'event', `${who.name}: ${e.text}`, 0);
+      }
+
+    } else if (e.type === 'buyBonus') {
+      st.buyBonus += e.value;
+      log(st, 'event', `${who.name}: ${e.text}`, 0);
+
+    } else if (e.type === 'gift' || e.type === 'giftUltra') {
+      let t = e.type === 'gift' ? byTitle(e.title) : null;
+      if (!t || ownedIds(st).has(t.id)) t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
+      if (t && freeSlots(st) > 0) {
+        addItem(st, t);
+        res.gained = t.id;
+        log(st, 'event', `${who.name}: ${e.text}（「${t.name}」を手に入れた）`, 0);
+      } else {
+        log(st, 'event', `${who.name}: ${e.text} ※棚が満杯で受け取れなかった`, 0);
+      }
+
+    } else if (e.type === 'offer') {
+      const t = byTitle(e.title);
+      if (!t) { log(st, 'event', `${who.name}: ${e.text}`, 0); return res; }
+      const price = Math.round(t.base * e.priceRatio / 100) * 100;
+      if (!yes) { log(st, 'event', `${who.name}: 「${t.name}」の話を断った`, 0); return res; }
+      if (st.cash < price || freeSlots(st) <= 0) {
+        log(st, 'event', `${who.name}: 「${t.name}」を買えなかった`, 0);
+        return res;
+      }
+      st.cash -= price;
+      st.totals.purchases += price;
+      st.totals.boughtCount++;
+      addItem(st, t);
+      res.gained = t.id;
+      res.spent = price;
+      log(st, 'event', `${who.name}: ${e.text}（「${t.name}」を${price.toLocaleString()}円で買い取った）`, -price);
+    }
+    return res;
   }
 
   const BROWSE_LINES = [
@@ -311,7 +423,9 @@
       const t = pickTitle(st, tier, { byDemand: true });
       if (!t) return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
       const r = st.cfg.sellerAskRange;
-      const ask = Math.max(100, Math.round(t.buy * (r[0] + st.rng() * (r[1] - r[0])) / 100) * 100);
+      let ask = t.buy * (r[0] + st.rng() * (r[1] - r[0]));
+      if (st.buyBonus) ask *= (1 - Math.min(0.4, st.buyBonus));   // 常連の値引き
+      ask = Math.max(100, Math.round(ask / 100) * 100);
       return { type: 'seller', titleId: t.id, ask };
     }
     return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
@@ -321,6 +435,12 @@
   function answer(st, yes) {
     if (st.phase !== 'shop' || !st.current) return null;
     const c = st.current;
+    if (c.type === 'event') {
+      const r = resolveEvent(st, c, yes);
+      st.current = st.queue.shift() || null;
+      if (!st.current) enterActionPhase(st);
+      return { customer: c, accepted: true, event: r };
+    }
     const result = { customer: c, accepted: false, reason: null };
 
     if (c.type === 'buyer' && yes) {
@@ -569,7 +689,7 @@
    */
   function tryUltraEvent(st) {
     const u = st.cfg.ultra;
-    if (u.source !== 'event' && u.source !== 'both') return;
+    if (u.source !== 'event' && u.source !== 'both') return;   // 既定では常連イベントが担うので発生しない
     // 予定週になったら「譲ってもらえる約束」が1件たまる
     if (st.ultraEvents + st.ultraDue < u.maxEvents
         && st.week >= u.eventFromWeek
@@ -643,6 +763,15 @@
   }
 
   function finish(st, forceEnding) {
+    // 体験版（50週未満）は達成度ではなく「ここまで」で終わる
+    if (st.cfg.totalWeeks < 50 && forceEnding !== 'bad' && !st.ended) {
+      const s0 = stats(st);
+      st.ended = true;
+      st.ending = 'demo';
+      st.result = s0;
+      log(st, 'end', `体験版はここまで。${st.cfg.totalWeeks}週で登録${s0.registered}本／所持${s0.owned}本。`, 0);
+      return;
+    }
     st.ended = true;
     st.phase = 'ended';
     const s = stats(st);
@@ -715,7 +844,7 @@
       queue: [], current: null, offers: null,
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
-      ultraEvents: 0, ultraDue: 0, lost: {},
+      ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0 },
     };
 
@@ -756,6 +885,6 @@
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale,
+    forSale, REGULARS, THRESHOLDS,
   };
 });

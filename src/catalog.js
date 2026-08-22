@@ -227,5 +227,5 @@
     return list;
   }
 
-  return { build, makeRng, rInt, rPick, rWeighted, HARDWARE, MAKERS, GENRE_LABEL };
+  return { build, makeRng, rInt, rPick, rWeighted, HARDWARE, MAKERS, GENRE_LABEL, DATA };
 });
