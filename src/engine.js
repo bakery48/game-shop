@@ -29,8 +29,24 @@
     startInventory: 30,
     shelfSlots: 50,          // 保管も含めた総枠
     displaySlots: 20,        // うち店頭陳列できる数
-    // 棚拡張（仕様書 5 節）。50枠では150本を同時所持できないため必須
-    expand: { cost: 100000, step: 50, max: 200, displayPerStep: 5 },
+    /**
+     * 金で買える設備・人手。購入は行動フェイズを1回使う。
+     * 設備は「棚売り（値札売り）」を、人手は「接客（指名客）」を伸ばす。
+     */
+    upgrades: [
+      { id: 'warehouse', name: '倉庫を広げる', cost: 100000, max: 3,
+        effect: { shelfSlots: 50 },
+        desc: '保管できる本数が50枠増える。150本を同時所持するには必須' },
+      { id: 'shelf', name: '陳列棚を増やす', cost: 80000, max: 4,
+        effect: { displaySlots: 10 },
+        desc: '店に並べられる本数が10増える。並べた分だけ値札で売れる' },
+      { id: 'storefront', name: '店内を改装する', cost: 150000, max: 3,
+        effect: { passive: 2 },
+        desc: '照明と什器を入れ替える。値札売りの本数が2本増える' },
+      { id: 'clerk', name: '店員を雇う', cost: 200000, max: 2,
+        effect: { customers: 1 },
+        desc: '接客できる人数が1人増える。指名客と常連に会える機会が増える' },
+    ],
 
     /**
      * 激レア15本の入手経路。
@@ -58,8 +74,8 @@
     reputation: {
       enabled: true,
       start: 0, min: 0, max: 100,
-      customers: [1, 6],          // 評判 0 → 100 のときの来客数
-      passive: [5, 16],           // 同じく店頭の値札売りの本数（安いぶん数は出る）
+      customers: [1, 3],          // 評判 0 → 100 のときの来客数（店主一人で捌ける上限）
+      passive: [6, 18],           // 同じく店頭の値札売りの本数（安いぶん数は出る）
       customerNoise: 1,           // 来客数のターンごとのブレ
       gainFalloff: 0.5,           // 評判が高いほど上がりにくくなる強さ（0で逓減なし）
       sellerRareBonus: 0.10,      // 評判100で持ち込みのレア率が+10ポイント（劇的にはしない）
@@ -387,9 +403,9 @@
     let n;
     if (rc.enabled) {
       // 評判で来客数が決まる。後半（週末）は少し多い
-      const base = byRep(st, rc.customers) + (st.half === 1 ? 0.6 : 0);
+      const base = byRep(st, rc.customers) + (st.half === 1 ? 0.6 : 0) + st.clerkBonus;
       const noise = rInt(st.rng, -rc.customerNoise, rc.customerNoise);
-      n = Math.max(rc.customers[0], Math.min(rc.customers[1], Math.round(base) + noise));
+      n = Math.max(rc.customers[0], Math.min(rc.customers[1] + st.clerkBonus, Math.round(base) + noise));
     } else {
       n = rInt(st.rng, cfg.count[0], cfg.count[1]);
     }
@@ -610,6 +626,10 @@
   }
 
   const unlocked = (st, key) => st.week >= (st.cfg.unlock[key] || 1);
+  /** いま買える設備・人手の一覧 */
+  const availableUpgrades = st => (st.cfg.upgrades || [])
+    .filter(u => (st.upgrades[u.id] || 0) < u.max)
+    .map(u => Object.assign({}, u, { owned: st.upgrades[u.id] || 0 }));
 
   /**
    * 評判を動かす。0〜100 に収める。
@@ -763,19 +783,22 @@
       addItem(st, t);
       log(st, 'order', `取り寄せ: 「${t.name}」が届いた`, -cost);
 
-    } else if (key === 'expand') {
+    } else if (key === 'upgrade') {
+      const up = (st.cfg.upgrades || []).find(u => u.id === params.id);
+      if (!up) return { ok: false, reason: 'nosuch' };
       if (!unlocked(st, 'expand')) return { ok: false, reason: 'locked' };
-      const ex = st.cfg.expand;
-      if (st.cfg.shelfSlots >= ex.max) return { ok: false, reason: 'max' };
-      if (st.cash < ex.cost) return { ok: false, reason: 'cash' };
-      st.cash -= ex.cost;
-      st.totals.expand += ex.cost;
-      st.cfg = Object.assign({}, st.cfg, {
-        shelfSlots: Math.min(ex.max, st.cfg.shelfSlots + ex.step),
-        displaySlots: st.cfg.displaySlots + ex.displayPerStep,
-      });
-      res.spent = ex.cost;
-      log(st, 'expand', `棚を拡張した（${st.cfg.shelfSlots}枠）`, -ex.cost);
+      if ((st.upgrades[up.id] || 0) >= up.max) return { ok: false, reason: 'max' };
+      if (st.cash < up.cost) return { ok: false, reason: 'cash' };
+      st.cash -= up.cost;
+      st.totals.expand += up.cost;
+      st.upgrades[up.id] = (st.upgrades[up.id] || 0) + 1;
+      const e = up.effect;
+      if (e.shelfSlots) st.cfg = Object.assign({}, st.cfg, { shelfSlots: st.cfg.shelfSlots + e.shelfSlots });
+      if (e.displaySlots) st.cfg = Object.assign({}, st.cfg, { displaySlots: st.cfg.displaySlots + e.displaySlots });
+      if (e.passive) st.passiveBonus += e.passive;
+      if (e.customers) st.clerkBonus += e.customers;
+      res.spent = up.cost;
+      log(st, 'upgrade', `${up.name}（${st.upgrades[up.id]}/${up.max}）`, -up.cost);
 
     } else if (key === 'rest') {
       log(st, 'rest', '店を閉めて休んだ', 0);
@@ -924,7 +947,7 @@
     const rc = st.cfg.reputation;
     if (rc.enabled) {
       // 賑わいは評判に連動する。序盤の客足の伸びとも掛け合わせる
-      const center = byRep(st, rc.passive);
+      const center = byRep(st, rc.passive) + st.passiveBonus;
       lo = Math.max(0, center - 2);
       hi = center + 2;
     } else if (ps.earlyCount) {
@@ -986,6 +1009,7 @@
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
       ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
+      upgrades: {}, passiveBonus: 0, clerkBonus: 0,
       reputation: 0,
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0 },
     };
@@ -1028,6 +1052,6 @@
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades,
   };
 });

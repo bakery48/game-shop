@@ -37,6 +37,8 @@
     add('ターン', E.HALF_LABEL[s.half]);
     add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
     add('家賃', yen(st.cfg.rent) + (rentSoon ? ' 今週末' : ''), rentSoon ? 'warn' : null);
+    const ups = Object.values(st.upgrades || {}).reduce((a, b) => a + b, 0);
+    if (ups) add('設備', `${ups}件` + (st.clerkBonus ? `／店員${st.clerkBonus}人` : ''));
     add('在庫', `${s.inventory} / ${s.slots}` + (s.junk ? `（雑${s.junk}）` : ''));
     add('陳列', `${s.displayed} / ${s.displaySlots}`);
     add('図鑑 登録', `${s.registered} / ${s.total}（${Math.round(s.registeredRate * 100)}%）`);
@@ -277,13 +279,19 @@
         render();
       }, false, `卸値は基準相場の${Math.round(st.cfg.wholesaleRatio * 100)}%です`);
 
-    const ex = st.cfg.expand;
-    if (!E.unlocked(st, 'expand')) locked('棚を拡張する', 'expand');
-    else mk('棚を拡張する',
-      `${st.cfg.shelfSlots} → ${Math.min(ex.max, st.cfg.shelfSlots + ex.step)}枠 — ${yen(ex.cost)}`,
-      '拡張する', () => { E.doAction(st, 'expand', {}); render(); },
-      st.cash < ex.cost || st.cfg.shelfSlots >= ex.max,
-      st.cfg.shelfSlots >= ex.max ? 'これ以上は拡張できません' : `最大${ex.max}枠まで`);
+    // 設備と人手
+    if (!E.unlocked(st, 'expand')) locked('設備と人手を買う', 'expand');
+    else {
+      for (const u of E.availableUpgrades(st)) {
+        mk(`${u.name}（${u.owned}/${u.max}）`,
+          yen(u.cost),
+          '買う', () => {
+            const r = E.doAction(st, 'upgrade', { id: u.id });
+            if (!r.ok) alert({ cash: '資金が足りません', max: 'これ以上は増やせません' }[r.reason] || '買えません');
+            render();
+          }, st.cash < u.cost, u.desc);
+      }
+    }
 
     mk('休む', '何もしません', '休む', () => { E.doAction(st, 'rest', {}); render(); });
   }

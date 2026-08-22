@@ -23,6 +23,7 @@
     junkMinSlots: 16,      // 処分品引取に必要な空き枠
     bulkMinSlots: 8,       // まとめ買いに必要な空き枠（あふれた分は業者行き）
     expandWhenSlotsBelow: 10,
+    clerkCashFloor: 450000,  // これだけ現金があるなら人手を入れる
     expandReserveRent: 3,    // 棚拡張後に残しておく家賃の倍数
     singleReserveRent: 2.5,  // 単品入札に残しておく家賃の倍数
     singleCashFloor: 400000, // これだけ現金が残るならレア狙いを優先する
@@ -177,12 +178,22 @@
       return { key: 'bulk', params: {} };
     }
 
-    // 5. 棚が詰まってきたら拡張（150本を同時所持するには必須）
-    const ex = cfg.expand;
-    if (E.unlocked(st, 'expand') && cfg.shelfSlots < ex.max && slots < TUNING.expandWhenSlotsBelow
-        && st.cash - ex.cost >= cfg.rent * TUNING.expandReserveRent + TUNING.reserve
-        && weeksLeft > 4) {
-      return { key: 'expand', params: {} };
+    // 5. 設備と人手。詰まっているところから順に買う
+    if (E.unlocked(st, 'expand') && weeksLeft > 4) {
+      const avail = E.availableUpgrades(st);
+      const pick = id => avail.find(u => u.id === id);
+      const afford = u => u && st.cash - u.cost >= cfg.rent * TUNING.expandReserveRent + TUNING.reserve;
+      // 棚が詰まっている → 倉庫、陳列枠が埋まっている → 陳列棚、その後は売上と接客
+      const order = [];
+      if (slots < TUNING.expandWhenSlotsBelow) order.push('warehouse');
+      if (E.freeDisplay(st) <= 0) order.push('shelf');
+      // 資金に余裕があるうちに人手を入れる。接客が増えると常連にも会いやすくなる
+      if (st.cash > TUNING.clerkCashFloor) order.push('clerk');
+      order.push('storefront', 'warehouse', 'shelf', 'clerk');
+      for (const id of order) {
+        const u = pick(id);
+        if (afford(u)) return { key: 'upgrade', params: { id } };
+      }
     }
 
     // 6. 序盤の単品入札（資金に余裕があるときだけ）
