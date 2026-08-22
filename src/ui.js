@@ -137,7 +137,8 @@
         card.appendChild(row);
       } else {
         if (!c.regular) card.appendChild(el('div', 'who', '冷やかし'));
-        card.appendChild(el('div', null, c.line));
+        // 常連の雑談は長いので、読みやすい行間で出す
+        card.appendChild(el('p', c.regular ? 'detail-body' : null, c.line));
         const row = el('div', 'row');
         row.appendChild(btn('次へ', () => { E.answer(st, false); render(); }, true));
         card.appendChild(row);

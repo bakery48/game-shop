@@ -223,5 +223,5 @@
     return st;
   }
 
-  return { TUNING, playTurn, playAll, arrangeDisplay, chooseAction, sellDecision, buyDecision, pickDump };
+  return { TUNING, playTurn, playAll, arrangeDisplay, chooseAction, sellDecision, buyDecision, eventDecision, pickDump };
 });

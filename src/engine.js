@@ -318,9 +318,15 @@
       s.fired++;
       return { type: 'event', regular: who, event: r.events[s.fired - 1] };
     }
-    // イベント以外の日は普通の客と同じように振る舞う（売買の回数を減らさない）
-    const w = st.cfg.customers[st.half === 0 ? 'front' : 'back'].weights;
-    const type = rWeighted(st.rng, Object.keys(w).map(k => [k, w[k]]));
+    // イベント以外の日は普通の客と同じように振る舞う（売買の回数を減らさない）。
+    // ただし alwaysBrowser の常連は必ず冷やかしになる＝来店枠を食うだけの邪魔者
+    let type;
+    if (r.alwaysBrowser) {
+      type = 'browser';
+    } else {
+      const w = st.cfg.customers[st.half === 0 ? 'front' : 'back'].weights;
+      type = rWeighted(st.rng, Object.keys(w).map(k => [k, w[k]]));
+    }
     const c = makeCustomer(st, type);
     c.regular = who;
     if (c.type === 'browser' && r.lines && r.lines.length) c.line = rPick(st.rng, r.lines);
@@ -348,7 +354,11 @@
     const res = { kind: e.type, gained: null, spent: 0 };
     const byTitle = name => st.catalog.find(t => t.name === name);
 
-    if (e.type === 'cash') {
+    if (e.type === 'talk') {
+      // 何も起きない。時間だけが過ぎる
+      log(st, 'event', `${who.name}: ${e.text}`, 0);
+
+    } else if (e.type === 'cash') {
       st.cash += e.amount;
       res.spent = -e.amount;
       log(st, 'event', `${who.name}: ${e.text}`, e.amount);
