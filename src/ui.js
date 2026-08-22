@@ -37,6 +37,10 @@
     add('ターン', E.HALF_LABEL[s.half]);
     add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
     add('家賃', yen(st.cfg.rent) + (rentSoon ? ' 今週末' : ''), rentSoon ? 'warn' : null);
+    const learned = Object.keys(st.skills || {});
+    if (learned.length) {
+      add('交渉術', learned.map(k => st.cfg.skills[k].name).join('・'), 'ok');
+    }
     const ups = Object.values(st.upgrades || {}).reduce((a, b) => a + b, 0);
     if (ups) add('設備', `${ups}件` + (st.clerkBonus ? `／店員${st.clerkBonus}人` : ''));
     add('在庫', `${s.inventory} / ${s.slots}` + (s.junk ? `（雑${s.junk}）` : ''));
@@ -484,10 +488,18 @@
       if (i === 2) th.className = 'num';
       head.appendChild(th);
     });
+    const teaches = {};
+    for (const id in st.cfg.skills) teaches[st.cfg.skills[id].from] = id;
     for (const r of E.REGULARS) {
       const s = st.regulars[r.id] || { visits: 0, fired: 0 };
       const row = tb.insertRow();
-      row.insertCell().textContent = r.name;
+      const nameCell = row.insertCell();
+      nameCell.textContent = r.name;
+      const sk = teaches[r.name];
+      if (sk) {
+        nameCell.appendChild(el('span', st.skills[sk] ? 'ok' : 'sub',
+          st.skills[sk] ? `　${st.cfg.skills[sk].name}◯` : `　${st.cfg.skills[sk].name}`));
+      }
       const tc = row.insertCell();
       tc.textContent = s.visits > 0 ? r.title : '——';
       tc.className = s.visits > 0 ? '' : 'sub';

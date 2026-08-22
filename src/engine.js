@@ -30,6 +30,21 @@
     shelfSlots: 50,          // 保管も含めた総枠
     displaySlots: 20,        // うち店頭陳列できる数
     /**
+     * 交渉術。金では買えず、常連との付き合いの中で教わる。
+     * 客相手でも業者相手でも「値段の話」は同じなので、仕入れ全体に効く。
+     * 周回引き継ぎでは腕として残る（店の資産は残らない）。
+     */
+    skills: {
+      haggle:      { name: '値切り',   from: '大町',
+                     desc: 'まとめ買いと処分品引取の言い値が25%下がる', lot: -0.25 },
+      appraise:    { name: '目利き',   from: '蜷川',
+                     desc: '持ち込みを30%安く買い取り、指名客には25%高く売れる', buy: -0.30, sell: 0.25 },
+      connections: { name: '顔つなぎ', from: '速水',
+                     desc: 'オークションと取り寄せが30%安くなり、未所持が回ってきやすい',
+                     bid: -0.30, order: -0.30, unownedBias: 0.9 },
+    },
+
+    /**
      * 金で買える設備・人手。購入は行動フェイズを1回使う。
      * 設備は「棚売り（値札売り）」を、人手は「接客（指名客）」を伸ばす。
      */
@@ -169,7 +184,7 @@
      * 資金も在庫も持ち越さないので、店の経営そのものは毎周ゼロから始まる。
      * 登録済みのソフトは最初から取り寄せで狙えるため、完全クリアが現実的になる。
      */
-    carryOver: { registered: true, cash: false, cashRatio: 0.2, slots: false },
+    carryOver: { registered: true, skills: true, cash: false, cashRatio: 0.2, slots: false },
 
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
@@ -241,7 +256,8 @@
 
   const ownedIds = st => new Set(st.inv.filter(i => !i.junk).map(i => i.titleId));
   /** 取り寄せ料金（相場＋割増） */
-  const orderCost = (st, t) => Math.round(t.base * st.cfg.order.premium / 100) * 100;
+  const orderCost = (st, t) =>
+    Math.round(t.base * st.cfg.order.premium * (1 + skill(st, 'order')) / 100) * 100;
   /** 取り寄せられるソフト＝登録済みだが今は持っていないもの */
   function orderable(st) {
     if (st.week < Math.max(st.cfg.order.fromWeek, st.cfg.unlock.order || 1)) return [];
@@ -431,6 +447,13 @@
     const res = { kind: e.type, gained: null, spent: 0 };
     const byTitle = name => st.catalog.find(t => t.name === name);
 
+    // どのイベントでもスキルを教われる（本来の効果とは別に付く）
+    if (e.skill && st.cfg.skills[e.skill] && !st.skills[e.skill]) {
+      st.skills[e.skill] = true;
+      const sk = st.cfg.skills[e.skill];
+      log(st, 'skill', `${who.name}から「${sk.name}」を教わった — ${sk.desc}`, 0);
+    }
+
     if (e.type === 'talk') {
       // 何も起きない。時間だけが過ぎる
       log(st, 'event', `${who.name}: ${e.text}`, 0);
@@ -502,7 +525,8 @@
       const item = rWeighted(st.rng, shelf.map(i => [i, demandOf(st, i)]));
       const t = titleOf(st, item);
       const r = st.cfg.buyerOfferRange;
-      const offer = Math.round(priceOf(st, item) * (r[0] + st.rng() * (r[1] - r[0])) / 100) * 100;
+      const offer = Math.round(priceOf(st, item)
+        * (r[0] + st.rng() * (r[1] - r[0])) * (1 + skill(st, 'sell')) / 100) * 100;
       return { type: 'buyer', uid: item.uid, titleId: t.id, offer };
     }
     if (type === 'seller') {
@@ -519,7 +543,7 @@
       const t = pickTitle(st, tier, { byDemand: true });
       if (!t) return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
       const r = st.cfg.sellerAskRange;
-      let ask = t.buy * (r[0] + st.rng() * (r[1] - r[0]));
+      let ask = t.buy * (r[0] + st.rng() * (r[1] - r[0])) * (1 + skill(st, 'buy'));
       if (st.buyBonus) ask *= (1 - Math.min(0.4, st.buyBonus));   // 常連の値引き
       ask = Math.max(100, Math.round(ask / 100) * 100);
       return { type: 'seller', titleId: t.id, ask };
@@ -626,6 +650,15 @@
   }
 
   const unlocked = (st, key) => st.week >= (st.cfg.unlock[key] || 1);
+  /** 習得済みスキルの効果を合計する。key は lot / buy / sell / bid / order / unownedBias */
+  function skill(st, key) {
+    let v = 0;
+    for (const id in st.skills) {
+      const def = st.cfg.skills[id];
+      if (def && def[key]) v += def[key];
+    }
+    return v;
+  }
   /** いま買える設備・人手の一覧 */
   const availableUpgrades = st => (st.cfg.upgrades || [])
     .filter(u => (st.upgrades[u.id] || 0) < u.max)
@@ -656,13 +689,15 @@
 
     // 処分品引取
     const junkLot = rollLot(st, cfg.junk);
+    const junkSkill = 1 + skill(st, 'lot');
     const junkCost = st.rng() < cfg.junk.freeChance ? 0
-      : Math.round(rInt(st.rng, cfg.junk.cost[0], cfg.junk.cost[1]) / 100) * 100;
+      : Math.round(rInt(st.rng, cfg.junk.cost[0], cfg.junk.cost[1]) * junkSkill / 100) * 100;
 
     // オークション（まとめ買い）
     const bulkLot = rollLot(st, cfg.bulk);
     const pr = cfg.bulk.priceRatio;
-    let bulkCost = Math.round(bulkLot.retail * (pr[0] + st.rng() * (pr[1] - pr[0])) / 1000) * 1000;
+    let bulkCost = Math.round(bulkLot.retail * (pr[0] + st.rng() * (pr[1] - pr[0]))
+      * (1 + skill(st, 'lot')) / 1000) * 1000;
     bulkCost = Math.min(cfg.bulk.cap[1], Math.max(cfg.bulk.cap[0], bulkCost));
 
     // オークション（単品入札）
@@ -673,7 +708,8 @@
       sw.ultra = 0;
     }
     const tier = pickTier(st.rng, sw);
-    const target = pickTitle(st, tier, { ownedPenalty: cfg.single.ownedPenalty });
+    const target = pickTitle(st, tier,
+      { ownedPenalty: cfg.single.ownedPenalty * (1 - skill(st, 'unownedBias')) });
     const ar = cfg.single.askRatio, rr = cfg.single.rivalRatio;
     const singleOffer = target ? {
       titleId: target.id,
@@ -747,7 +783,8 @@
       const t = st.byId.get(offer.titleId);
       if (bid >= offer.rival) {
         if (freeSlots(st) <= 0) return { ok: false, reason: 'slots' };
-        const paid = Math.min(bid, Math.max(offer.current, offer.rival)); // 二位価格に近い決着
+        const paid = Math.round(Math.min(bid, Math.max(offer.current, offer.rival))
+          * (1 + skill(st, 'bid')));                                    // 二位価格に近い決着
         st.cash -= paid;
         st.totals.purchases += paid;
         res.spent = paid;
@@ -1009,7 +1046,7 @@
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
       ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
-      upgrades: {}, passiveBonus: 0, clerkBonus: 0,
+      upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {},
       reputation: 0,
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0 },
     };
@@ -1030,6 +1067,7 @@
       if (co.registered && prev.registered) {
         for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
       }
+      if (co.skills && prev.skills) for (const id of prev.skills) st.skills[id] = true;
       if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
       if (co.slots && prev.shelfSlots) {
         st.cfg = cfg = Object.assign({}, cfg, { shelfSlots: Math.max(cfg.shelfSlots, prev.shelfSlots) });
@@ -1051,7 +1089,8 @@
     answer, doAction, endTurn,
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
-    carryFrom: st => ({ registered: Array.from(st.registered), cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades,
+    carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
+      cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill,
   };
 });
