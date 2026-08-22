@@ -110,6 +110,33 @@ check('叔父の年表が並び順どおり', () => {
   assert(new Set(years).size >= 4, '同じ年に固まっている');
   return years.join(' → ');
 });
+check('作中の年から見た年齢がつじつま合っている', () => {
+  const L = sw.lore, now = L.present;
+  assert(now > sw.hardware.span[1], `現在${now}年がハードの期間内`);
+  assert(now - L.self.born === 66, `主人公が${now - L.self.born}歳（66歳のはず）`);
+  assert(L.uncle.died <= now, `叔父の没年${L.uncle.died}が現在より後`);
+  assert(L.self.born - L.uncle.born === 20, '叔父との年齢差が20歳でない');
+  return `${now}年: 主人公${now - L.self.born}歳 / 叔父${L.uncle.died - L.uncle.born}歳で没`;
+});
+check('図鑑に書いた年齢が発売年と生年に合う', () => {
+  // 発売年を動かしたときに「当時34歳」だけ取り残される事故を防ぐ
+  const L = sw.lore;
+  const who = name => (name === L.self.name ? L.self : name === L.uncle.name ? L.uncle : null);
+  let n = 0;
+  for (const t of sw.titles) {
+    const re = /当時(\d+)歳の(\S{2,5}?)(?=が|は|、)/g;
+    let m;
+    while ((m = re.exec(t.details))) {
+      const p = who(m[2]);
+      assert(p, `「${t.title}」の「${m[2]}」が誰か分からない`);
+      n++;
+      assert(t.year - p.born === Number(m[1]),
+        `「${t.title}」(${t.year}年) の「当時${m[1]}歳」は ${t.year - p.born}歳のはず`);
+    }
+  }
+  assert(n >= 2, `年齢の記述が${n}件しかない`);
+  return `${n}件`;
+});
 check('叔父の4本がすべてエスニック絡み', () => {
   // 版元の社員という設定なので、関わった作品は全部エスニックが売っている
   for (const t of sw.titles.filter(x => x.lore === 'uncle')) {
