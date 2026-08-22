@@ -524,10 +524,10 @@
     if (!tb) return;
     tb.innerHTML = '';
     const head = tb.insertRow();
-    ['常連', '素性', '来店', '次のイベントまで'].forEach((h, i) => {
+    ['常連', '素性', '呼び方', '来店', '次のイベントまで'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
-      if (i === 2) th.className = 'num';
+      if (i === 3) th.className = 'num';
       head.appendChild(th);
     });
     const teaches = {};
@@ -545,6 +545,10 @@
       const tc = row.insertCell();
       tc.textContent = s.visits > 0 ? r.title : '——';
       tc.className = s.visits > 0 ? '' : 'sub';
+      // 店主をどう呼ぶか。対等に見ている相手は「あんた」、店として見ている相手は「店長」
+      const cc = row.insertCell();
+      cc.textContent = s.visits > 0 ? (r.calls || '——') : '——';
+      cc.className = s.visits > 0 ? 'sub' : 'sub';
       const vc = row.insertCell();
       vc.textContent = s.visits + '回';
       vc.className = 'num';

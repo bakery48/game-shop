@@ -41,6 +41,8 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: JSエラーが無い`, errs.length === 0, errs[0]);
     check(`${scheme}: 図鑑が描画される`, (await page.locator('#dex tr').count()) > 100);
     check(`${scheme}: 常連が描画される`, (await page.locator('#regulars tr').count()) === 8);
+    check(`${scheme}: 常連表に呼び方の列がある`,
+      (await page.locator('#regulars th').allTextContents()).includes('呼び方'));
     check(`${scheme}: 横スクロールしない`,
       !(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)));
 

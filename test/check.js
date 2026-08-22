@@ -70,6 +70,46 @@ check('regulars.json が参照するタイトルが実在する', () => {
     if (e.title) assert(titles.has(e.title), `${r.name}: 「${e.title}」が無い`);
   }
 });
+check('常連の呼び方が主人公の年齢を漏らさない', () => {
+  // 名前でも年齢でも呼ばせない。「おじさん」「おじいちゃん」は一発で叙述トリックが壊れる
+  const banned = /おじいちゃん|おじさん|お兄さん|お若い|若く見え/;
+  const self = sw.lore.self.name;
+  for (const r of rg.regulars) {
+    assert(r.calls, `${r.name} に calls が無い`);
+    const all = (r.lines || []).concat(r.events.map(e => e.text))
+      .concat(r.events.filter(e => e.skillKnown).map(e => e.skillKnown.text));
+    for (const line of all) {
+      const hit = line.match(banned);
+      assert(!hit, hit && `${r.name}: 年齢が漏れる呼びかけ「${hit[0]}」`);
+      assert(!line.includes(self), `${r.name}: 主人公を名前で呼んでいる`);
+    }
+  }
+  const calls = {};
+  for (const r of rg.regulars) calls[r.calls] = (calls[r.calls] || 0) + 1;
+  return Object.entries(calls).map(([k, v]) => `${k}${v}人`).join(' / ');
+});
+check('「店長」と呼ぶ常連が実際にそう呼んでいる', () => {
+  const users = rg.regulars.filter(r => r.calls.startsWith('店長'));
+  assert(users.length >= 1, '店長呼びの常連がいない');
+  for (const r of users) {
+    const used = (r.lines || []).some(l => l.includes(r.calls));
+    assert(used, `${r.name} は calls=${r.calls} なのに一度も使っていない`);
+  }
+  // 逆に「あんた」派が店長と呼んでいないこと
+  for (const r of rg.regulars.filter(x => !x.calls.startsWith('店長'))) {
+    for (const l of (r.lines || [])) {
+      assert(!l.includes('店長'), `${r.name}（${r.calls}派）が店長と呼んでいる`);
+    }
+  }
+  return users.map(r => r.name).join('・');
+});
+check('常連のセリフが来店回数に対して足りている', () => {
+  // 1周で12〜18回来店するので、同じ言い回しの繰り返しがどれだけ残っているかを見る
+  const counts = rg.regulars.map(r => (r.lines || []).length);
+  const min = Math.min(...counts);
+  assert(min >= 4, `最少${min}本`);
+  return `${min}〜${Math.max(...counts)}本（計${counts.reduce((a, b) => a + b, 0)}本）`;
+});
 check('regulars.json が参照するスキルが実在する', () => {
   for (const r of rg.regulars) for (const e of r.events) {
     if (e.skill) assert(E.BALANCE.skills[e.skill], `${r.name}: スキル ${e.skill} が無い`);
