@@ -137,7 +137,7 @@ check('伏線がカタログに必ず載る', () => {
   assert(lore.length >= 7, `伏線が${lore.length}本しかない`);
   for (const t of lore) {
     assert(inCatalog.has(t.title), `「${t.title}」が枠から溢れている`);
-    assert(t.details.includes(sw.lore.surname), `「${t.title}」に人名が入っていない`);
+    assert(t.details.includes(sw.lore[t.lore].surname), `「${t.title}」に人名が入っていない`);
     assert(['uncle', 'self'].includes(t.lore), `${t.title}: lore=${t.lore}`);
   }
   const self = lore.filter(t => t.lore === 'self').length;
@@ -153,23 +153,33 @@ check('主人公の正体をUIに出していない', () => {
   return `「${self}」はデータの中だけ`;
 });
 check('会話では誰も家名を口にしない', () => {
-  // 図鑑の details だけが姓を持つ。会話に出ると二段目の種明かしが先に割れる
-  const surname = sw.lore.surname;
+  // 図鑑の details だけが姓を持つ。会話に出ると種明かしが先に割れる
+  const names = [sw.lore.uncle.surname, sw.lore.self.surname];
   for (const r of rg.regulars) {
     const all = (r.lines || []).concat(r.events.map(e => e.text))
       .concat(r.events.filter(e => e.skillKnown).map(e => e.skillKnown.text));
-    for (const line of all) {
-      assert(!line.includes(surname), `${r.name} が「${surname}」と言っている`);
+    for (const line of all) for (const nm of names) {
+      assert(!line.includes(nm), `${r.name} が「${nm}」と言っている`);
     }
   }
-  return `姓「${surname}」は図鑑の中だけ`;
+  return `${names.join('・')} は図鑑の中だけ`;
 });
-check('屋号が姓を直接見せない', () => {
+check('屋号が叔父の姓の暗号になっている', () => {
   // 石橋→ブリヂストン方式。看板を見ても姓は分からない、が正解を知れば一致する
   const st = E.createGame({ seed: 1 });
   assert(st.log[0].text.includes(sw.lore.shop), '屋号が開店の一言に出ていない');
-  assert(!sw.lore.shop.includes(sw.lore.surname), '屋号に姓がそのまま入っている');
-  return `${sw.lore.shop} ← ${sw.lore.surname}`;
+  assert(!sw.lore.shop.includes(sw.lore.uncle.surname), '屋号に姓がそのまま入っている');
+  return `${sw.lore.shop} ← ${sw.lore.uncle.surname}`;
+});
+check('主人公の姓が看板と無関係', () => {
+  // 「生涯なにも署名していない」男なので、看板の姓と一致してはいけない
+  const u = sw.lore.uncle.surname, self = sw.lore.self.surname;
+  assert(u !== self, `叔父と主人公が同じ姓（${u}）だと、看板が主人公の署名になってしまう`);
+  const selfClues = sw.titles.filter(t => t.lore === 'self');
+  for (const t of selfClues) {
+    assert(!t.details.includes(u), `「${t.title}」に叔父の姓が混ざっている`);
+  }
+  return `叔父${u} / 主人公${self}（別姓）`;
 });
 check('開店の一言が屋号を出し、年齢に触れない', () => {
   const st = E.createGame({ seed: 1 });
