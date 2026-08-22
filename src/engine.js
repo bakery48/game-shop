@@ -448,11 +448,19 @@
     const res = { kind: e.type, gained: null, spent: 0 };
     const byTitle = name => st.catalog.find(t => t.name === name);
 
-    // どのイベントでもスキルを教われる（本来の効果とは別に付く）
-    if (e.skill && st.cfg.skills[e.skill] && !st.skills[e.skill]) {
-      st.skills[e.skill] = true;
+    // どのイベントでもスキルを教われる（本来の効果とは別に付く）。
+    // 周回で既に覚えている場合は、教え直さずに skillKnown の別セリフ＋現金になる。
+    if (e.skill && st.cfg.skills[e.skill]) {
       const sk = st.cfg.skills[e.skill];
-      log(st, 'skill', `${who.name}から「${sk.name}」を教わった — ${sk.desc}`, 0);
+      if (!st.skills[e.skill]) {
+        st.skills[e.skill] = true;
+        log(st, 'skill', `${who.name}から「${sk.name}」を教わった — ${sk.desc}`, 0);
+      } else if (e.skillKnown) {
+        const amount = e.skillKnown.amount || 0;
+        st.cash += amount;
+        res.skillCash = amount;   // res.spent は後段の offer で上書きされるので別に持つ
+        log(st, 'skill', `${who.name}: ${e.skillKnown.text}`, amount);
+      }
     }
 
     if (e.type === 'talk') {
@@ -1104,5 +1112,11 @@
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill,
+    /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
+    skillKnownNote: (st, e) =>
+      (e && e.skill && st.skills[e.skill] && e.skillKnown) ? e.skillKnown : null,
+    /** 判断が要らない客か（会話スキップの対象） */
+    skippable: c => !!c && (c.type === 'browser'
+      || (c.type === 'event' && c.event && c.event.type !== 'offer')),
   };
 });

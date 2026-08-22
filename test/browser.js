@@ -62,6 +62,45 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 取り寄せを1手番で3本頼める`,
       order.ok && order.got === 3, order.why || `${order.got}本`);
 
+    // 会話スキップ: 判断の要らない客だけ自動で進み、判断が要る客は残る
+    const skip = await page.evaluate(() => {
+      const box = document.getElementById('skipTalk');
+      const setup = () => {
+        st.phase = 'shop'; st.queue = [{ type: 'browser', line: 'ダミー2' }];
+        st.current = { type: 'browser', line: 'ダミー1' };
+      };
+      box.checked = false; box.onchange();
+      setup(); window.renderUI();
+      const off = document.getElementById('phase').textContent.includes('ダミー1');
+      box.checked = true; box.onchange();
+      setup(); window.renderUI();
+      const on = !document.getElementById('phase').textContent.includes('ダミー1') && st.phase === 'action';
+      // 取引の判断は飛ばさない
+      st.phase = 'shop'; st.queue = [];
+      st.current = { type: 'seller', titleId: st.catalog[0].id, ask: 100 };
+      window.renderUI();
+      const kept = st.current !== null;
+      box.checked = false; box.onchange();
+      return { off, on, kept };
+    });
+    check(`${scheme}: 会話スキップが効く`, skip.off && skip.on && skip.kept, JSON.stringify(skip));
+
+    // 交渉術を習得済みなら別セリフ＋現金になる
+    const alt = await page.evaluate(() => {
+      st.skills.haggle = true;
+      const ev = Engine.REGULARS.find(r => r.id === 'omachi').events.find(e => e.skill === 'haggle');
+      const before = st.cash;
+      st.phase = 'shop'; st.queue = [];
+      st.current = { type: 'event', event: ev,
+        regular: { id: 'omachi', name: '大町', title: 'ライバル店主', visits: 7 } };
+      window.renderUI();
+      const shown = document.getElementById('phase').textContent.includes('習得済み');
+      [...document.querySelectorAll('#phase button')].find(b => b.textContent.includes('断る')).click();
+      return { shown, gained: st.cash - before };
+    });
+    check(`${scheme}: 習得済みの交渉術は別セリフ＋現金`,
+      alt.shown && alt.gained === 30000, `${alt.gained}円`);
+
     // 50週を自動で回して落ちないか
     await page.evaluate(() => { Policy.playAll(st); window.renderUI(); });
     check(`${scheme}: 最後まで自動で回せる`, await page.evaluate(() => st.ended), errs[0]);

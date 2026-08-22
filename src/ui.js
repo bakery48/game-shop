@@ -6,6 +6,16 @@
   const selected = new Set();
 
   const $ = id => document.getElementById(id);
+
+  /**
+   * 会話スキップ。周回すると同じイベントを何度も読むことになるので、
+   * 「判断が要らない客」だけ自動で進める。何が起きたかはログに残り、
+   * 飛ばした分は要約カードで見える。判断が要る客（買う／売る／取引）は飛ばさない。
+   */
+  const SKIP_KEY = 'gameshop.skipTalk';
+  let skipTalk = false;
+  try { skipTalk = localStorage.getItem(SKIP_KEY) === '1'; } catch (e) { /* 使えなくても動く */ }
+  let skipped = [];   // 直近に飛ばしたログ行
   const yen = n => (n < 0 ? '-' : '') + '¥' + Math.abs(Math.round(n)).toLocaleString('ja-JP');
   const el = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -55,8 +65,21 @@
     const box = $('phase');
     box.innerHTML = '';
 
+    if (skipped.length) {
+      const c = el('div', 'card');
+      c.appendChild(el('div', 'who', `会話を${skipped.length}件飛ばしました`));
+      for (const l of skipped) {
+        const d = el('div', 'sub');
+        d.appendChild(el('span', null, l.text));
+        if (l.amount) d.appendChild(el('span', l.amount < 0 ? ' warn' : ' ok', '  ' + yen(l.amount)));
+        c.appendChild(d);
+      }
+      box.appendChild(c);
+      skipped = [];
+    }
+
     if (st.ended) {
-      const name = { true: '真エンド（全150本を同時所持）', normal: 'ノーマルエンド（図鑑は完成、所持は未達）',
+      const name = { true: `真エンド（全${st.cfg.catalogSize}本を同時所持）`, normal: 'ノーマルエンド（図鑑は完成、所持は未達）',
                      bad: 'バッドエンド（家賃を払えず閉店）', incomplete: '未達成',
                      demo: `体験版はここまで（${st.cfg.totalWeeks}週）` }[st.ending];
       const c = el('div', 'card');
@@ -87,6 +110,13 @@
         card.classList.add('event');
         if (!c.regular) card.appendChild(el('div', 'who', 'イベント'));
         card.appendChild(el('p', 'detail-body', c.event.text));
+        // 既に覚えている交渉術のイベントは、教え直しではなく別のやりとりになる
+        const known = E.skillKnownNote(st, c.event);
+        if (known) {
+          card.appendChild(el('p', 'detail-body', known.text));
+          card.appendChild(el('div', 'ok',
+            `${st.cfg.skills[c.event.skill].name}は習得済み — 代わりに ${yen(known.amount)}`));
+        }
         const row = el('div', 'row');
         if (c.event.type === 'offer') {
           const t = st.catalog.find(x => x.name === c.event.title);
@@ -526,7 +556,19 @@
     }
   }
 
+  /** 判断の要らない客をまとめて消化する。何が起きたかは skipped に控える */
+  function runSkips() {
+    if (!skipTalk || !st || st.ended) return;
+    const from = st.log.length;
+    let guard = 0;
+    while (st.phase === 'shop' && st.current && E.skippable(st.current) && guard++ < 50) {
+      E.answer(st, st.current.type === 'event');   // ボタンと同じ引数を渡す
+    }
+    if (st.log.length > from) skipped = st.log.slice(from);
+  }
+
   function render() {
+    runSkips();
     renderStat(); renderPhase(); renderInv(); renderDex(); renderLog(); renderDetail(); renderRegulars();
   }
   window.renderUI = render;   // デバッグ用
@@ -544,6 +586,16 @@
     selected.clear();
     window.st = st;
     render();
+  }
+
+  const skipBox = $('skipTalk');
+  if (skipBox) {
+    skipBox.checked = skipTalk;
+    skipBox.onchange = () => {
+      skipTalk = skipBox.checked;
+      try { localStorage.setItem(SKIP_KEY, skipTalk ? '1' : '0'); } catch (e) { /* 保存できなくても動く */ }
+      render();
+    };
   }
 
   $('btnNew').onclick = () => { lastRun = null; newGame(); };

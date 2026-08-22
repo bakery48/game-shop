@@ -164,6 +164,39 @@ check('全ソフトが図鑑に載る状態でも破綻しない', () => {
   assert(st.ended, '終了していない');
 });
 
+check('skill を持つイベントには skillKnown がある', () => {
+  let n = 0;
+  for (const r of rg.regulars) for (const e of r.events) {
+    if (!e.skill) continue;
+    n++;
+    assert(e.skillKnown && e.skillKnown.text && e.skillKnown.amount > 0,
+      `${r.name}: ${e.skill} に skillKnown が無い`);
+  }
+  assert(n === Object.keys(E.BALANCE.skills).length, `${n}件（交渉術の数と合わない）`);
+  return `${n}件`;
+});
+check('習得済みなら教え直さず現金になる', () => {
+  const ev = E.REGULARS.find(r => r.id === 'omachi').events.find(e => e.skill === 'haggle');
+  const st = E.createGame({ seed: 5 });
+  st.skills.haggle = true;
+  const before = st.cash;
+  st.phase = 'shop'; st.queue = [];
+  st.current = { type: 'event', event: ev, regular: { id: 'omachi', name: '大町', title: 'x', visits: 7 } };
+  E.answer(st, false);
+  assert(st.cash - before === ev.skillKnown.amount, `${st.cash - before}円`);
+  const line = st.log.filter(l => l.kind === 'skill').pop();
+  assert(line && !/教わった/.test(line.text), '教え直しのログが出ている');
+  return `${ev.skillKnown.amount.toLocaleString()}円`;
+});
+check('判断が要る客は会話スキップの対象外', () => {
+  const yes = [{ type: 'browser' }, { type: 'event', event: { type: 'talk' } },
+               { type: 'event', event: { type: 'giftUltra' } }];
+  const no  = [{ type: 'buyer' }, { type: 'seller' },
+               { type: 'event', event: { type: 'offer' } }];
+  for (const c of yes) assert(E.skippable(c), `${c.type} が飛ばせない`);
+  for (const c of no) assert(!E.skippable(c), `${c.type} を飛ばしてしまう`);
+});
+
 // ---------------- 5. 周回引き継ぎ ----------------
 section('周回引き継ぎ');
 check('図鑑と交渉術が次の周に残る', () => {
