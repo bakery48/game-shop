@@ -110,6 +110,19 @@ check('叔父の年表が並び順どおり', () => {
   assert(new Set(years).size >= 4, '同じ年に固まっている');
   return years.join(' → ');
 });
+check('叔父の4本がすべてエスニック絡み', () => {
+  // 版元の社員という設定なので、関わった作品は全部エスニックが売っている
+  for (const t of sw.titles.filter(x => x.lore === 'uncle')) {
+    assert(t.maker.includes('エスニック'), `「${t.title}」の版元が${t.maker}`);
+    assert(!/外部から呼ばれた|外部から入って/.test(t.details),
+      `「${t.title}」に外部の人間としての記述が残っている`);
+  }
+  // 主人公は逆に、下請けを渡り歩く外注であること
+  const selfMakers = new Set(sw.titles.filter(x => x.lore === 'self').map(x => x.maker));
+  assert(selfMakers.size >= 3, `主人公の関わり先が${selfMakers.size}社しかない`);
+  for (const m of selfMakers) assert(!m.includes('エスニック'), `主人公が${m}に関わっている`);
+  return `叔父=エスニック4本 / 主人公=${selfMakers.size}社を渡り歩き`;
+});
 check('regulars.json のイベント数がしきい値と一致', () => {
   const n = rg.visitThresholds.length;
   for (const r of rg.regulars) assert(r.events.length === n, `${r.name} は${r.events.length}件`);
