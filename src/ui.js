@@ -71,7 +71,10 @@
         p.appendChild(el('span', null, ` を ${yen(c.offer)} で売ってほしい`));
         card.appendChild(p);
         card.appendChild(el('div', 'sub',
-          `${t.hardware} / ${t.year}年 / ${t.maker} / ${t.tierLabel}｜基準相場 ${yen(t.base)}｜所持 ${E.countOf(st, t.id)}本`));
+          `${t.year}年 / ${t.maker} / ${t.tierLabel}`
+          + (t.rating != null ? ` / 評価${t.rating.toFixed(1)}` : '')
+          + `｜基準相場 ${yen(t.base)}｜所持 ${E.countOf(st, t.id)}本`));
+        showDetail(t.id);
         if (E.countOf(st, t.id) <= 1) {
           card.appendChild(el('div', 'warn', '※ 最後の1本です。売ると所持率が下がります'));
         }
@@ -88,8 +91,11 @@
         p.appendChild(el('span', null, ` を ${yen(c.ask)} で買い取ってほしい`));
         card.appendChild(p);
         card.appendChild(el('div', 'sub',
-          `${t.hardware} / ${t.year}年 / ${t.maker} / ${t.tierLabel}｜基準相場 ${yen(t.base)}｜買取目安 ${yen(t.buy)}｜`
+          `${t.year}年 / ${t.maker} / ${t.tierLabel}`
+          + (t.rating != null ? ` / 評価${t.rating.toFixed(1)}` : '')
+          + `｜基準相場 ${yen(t.base)}｜買取目安 ${yen(t.buy)}｜`
           + (owned ? '所持済み' : '未所持')));
+        showDetail(t.id);
         const row = el('div', 'row');
         const canBuy = st.cash >= c.ask && E.freeSlots(st) > 0;
         row.appendChild(btn('買う', () => { E.answer(st, true); render(); }, true, !canBuy));
@@ -273,6 +279,8 @@
       nc.textContent = t.name + (E.countOf(st, t.id) > 1 ? ` ×${E.countOf(st, t.id)}` : '');
       nc.className = tierCls(t.tier);
       nc.title = t.desc;
+      r.style.cursor = 'pointer';
+      r.onclick = e => { if (e.target.tagName !== 'INPUT') showDetail(t.id); };
       r.insertCell().textContent = t.hardware;
       r.insertCell().textContent = t.tierLabel;
       const pc = r.insertCell();
@@ -302,10 +310,10 @@
     const tb = $('dex');
     tb.innerHTML = '';
     const head = tb.insertRow();
-    ['状態', 'タイトル', 'ハード', '年', 'メーカー', '希少', '相場'].forEach((h, i) => {
+    ['状態', 'タイトル', '年', 'メーカー', '希少', '評価', '相場'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
-      if (i === 6) th.className = 'num';
+      if (i >= 5) th.className = 'num';
       head.appendChild(th);
     });
     const owned = E.ownedIds(st);
@@ -318,16 +326,20 @@
       sc.textContent = has ? '所持' : reg ? '登録' : '—';
       sc.className = has ? 'ok' : reg ? 'sub' : 'sub';
       const nc = r.insertCell();
-      nc.textContent = reg ? t.name : '？？？';
+      nc.textContent = (reg ? t.name : '？？？') + (reg && !t.authored ? ' *' : '');
       nc.className = reg ? tierCls(t.tier) : 'sub';
+      if (reg && !t.authored) nc.title = '仮データ';
       if (reg) nc.title = t.desc;
-      r.insertCell().textContent = reg ? t.hardware : '—';
       r.insertCell().textContent = reg ? t.year : '—';
       r.insertCell().textContent = reg ? t.maker : '—';
       r.insertCell().textContent = t.tierLabel;
+      const rc = r.insertCell();
+      rc.textContent = reg && t.rating != null ? t.rating.toFixed(1) : '—';
+      rc.className = 'num';
       const pc = r.insertCell();
       pc.textContent = reg ? yen(t.base) : '—';
       pc.className = 'num';
+      if (reg) { r.style.cursor = 'pointer'; r.onclick = () => showDetail(t.id); }
     }
     const s = E.stats(st);
     $('dexNote').textContent = `登録 ${s.registered} / 所持 ${s.owned} / 全${s.total}本`;
@@ -348,8 +360,54 @@
     }
   }
 
+  // ---------------- ソフトの詳細 ----------------
+  let detailId = null;
+
+  function showDetail(id) { detailId = id; renderDetail(); }
+
+  function renderDetail() {
+    const box = $('detail');
+    if (!box) return;
+    box.innerHTML = '';
+    const t = detailId != null ? st.byId.get(detailId) : null;
+    if (!t || !st.registered.has(t.id)) {
+      box.appendChild(el('div', 'sub', '図鑑や在庫の行をクリックすると、そのソフトの詳細が出ます'));
+      return;
+    }
+    const h = el('div', 'detail-title');
+    h.appendChild(el('span', tierCls(t.tier), t.name));
+    box.appendChild(h);
+    box.appendChild(el('div', 'sub',
+      `${t.maker}／${t.year}年／${st.cfg.catalogHardware || 'SEC'}／${t.genreLabel}`));
+    const meta = el('div', 'detail-meta');
+    const chip = (label, value, cls) => {
+      const d = el('span', 'chip');
+      d.appendChild(el('span', 'sub', label + ' '));
+      d.appendChild(el('b', cls, value));
+      meta.appendChild(d);
+    };
+    chip('希少度', t.tierLabel, tierCls(t.tier));
+    chip('基準相場', yen(t.base));
+    chip('買取目安', yen(t.buy));
+    if (t.rating != null) chip('評価', t.rating.toFixed(1));
+    chip('所持', E.countOf(st, t.id) + '本', E.countOf(st, t.id) ? 'ok' : 'sub');
+    box.appendChild(meta);
+    box.appendChild(el('p', 'detail-body', t.desc));
+    if (!t.authored) {
+      box.appendChild(el('div', 'sub', '※ このソフトはまだ仮データです（タイトルと説明文は自動生成）'));
+    }
+    if (t.related && t.related.length) {
+      const names = t.related.map(id => st.byId.get(id))
+        .filter(x => st.registered.has(x.id)).map(x => x.name);
+      if (names.length) {
+        box.appendChild(el('div', 'sub', '同じメーカー: ' + names.slice(0, 6).join('、')
+          + (names.length > 6 ? ` ほか${names.length - 6}本` : '')));
+      }
+    }
+  }
+
   function render() {
-    renderStat(); renderPhase(); renderInv(); renderDex(); renderLog();
+    renderStat(); renderPhase(); renderInv(); renderDex(); renderLog(); renderDetail();
   }
   window.renderUI = render;   // デバッグ用
 

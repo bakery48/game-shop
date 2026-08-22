@@ -135,6 +135,12 @@ tbody tr:hover td { background:var(--sunk); }
 #log div { padding:2px 0; border-bottom:1px dotted var(--rule-soft); }
 #log div:last-child { border-bottom:0; }
 
+.detail-title { font-size:17px; font-weight:700; margin-bottom:2px; text-wrap:balance; }
+.detail-meta { display:flex; flex-wrap:wrap; gap:6px 14px; margin:8px 0 6px; }
+.chip { display:inline-flex; gap:4px; align-items:baseline;
+        border:1px solid var(--rule-soft); background:var(--sunk); padding:1px 8px; }
+.detail-body { margin:6px 0 8px; max-width:68ch; line-height:1.85; }
+
 pre {
   font:12.5px/1.7 "M PLUS 1 Code",monospace; margin:0; padding:10px 11px;
   background:var(--sunk); overflow-x:auto; color:var(--ink);
@@ -179,6 +185,11 @@ pre {
       <div id="log"></div>
     </div>
 
+    <div class="panel full">
+      <h2>ソフトの詳細</h2>
+      <div class="body" id="detail"></div>
+    </div>
+
     <div class="panel full" id="simPanel" style="display:none">
       <h2>自動シミュレーション結果 <span class="sub">100回まわした中央値</span></h2>
       <pre id="simOut"></pre>
@@ -196,7 +207,7 @@ pre {
     </div>
 
     <div class="panel">
-      <h2>図鑑 <span class="sub" id="dexNote"></span></h2>
+      <h2>図鑑 <span class="sub" id="dexNote"></span><span class="sub">* は仮データ</span></h2>
       <div class="body">
         <div class="row"><label><input type="checkbox" id="dexMissing"> 未所持のみ表示</label></div>
       </div>

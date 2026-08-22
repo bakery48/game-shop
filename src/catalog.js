@@ -5,10 +5,13 @@
  * 固定シードで生成するので、実行のたびに同じ150本が出る。
  */
 (function (root, factory) {
-  const api = factory();
+  const data = (typeof module === 'object' && module.exports)
+    ? require('./software-data.js')
+    : root.SoftwareData;
+  const api = factory(data);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Catalog = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (DATA) {
 
   // ---------------- 乱数（mulberry32） ----------------
   function makeRng(seed) {
@@ -32,12 +35,12 @@
   }
 
   // ---------------- 世界設定 ----------------
-  const HARDWARE = [
-    { id: 'mighty8',  name: 'マイティ8',    kind: '8bit据置',  span: [1985, 1991] },
-    { id: 'neotron',  name: 'ネオトロン16', kind: '16bit据置', span: [1990, 1996] },
-    { id: 'pocketa',  name: 'ポケッタ',     kind: '携帯機',    span: [1994, 1999] },
-    { id: 'zerodisc', name: 'ゼロディスク', kind: '32bit据置', span: [1996, 1998] },
-  ];
+  // 主力ハード。data/software.json の hardware がそのまま使われる
+  const HW = (DATA && DATA.hardware) || {
+    id: 'sec', name: 'SEC', fullName: 'スーパーエレクトリックコンピュータ',
+    nickname: 'スーエレ', span: [1990, 1998],
+  };
+  const HARDWARE = [{ id: HW.id, name: HW.name, kind: 'カセット式据置', span: HW.span }];
 
   const MAKERS = [
     { id: 'ohtori',    name: '大鳥電機',           genres: ['RPG', 'SLG', 'AVG'], rarity: 0.8, trait: '老舗の大手。手堅いが冒険はしない' },
@@ -103,6 +106,26 @@
    * @param {object} tiers BALANCE.tiers（区分ごとの本数・相場帯）
    * @param {number} total 生成本数（tiers の比率で按分する）
    */
+  /** data/software.json の1件をカタログ形式に変換する */
+  function fromData(entry, id, tiers) {
+    const tier = tiers[entry.tier] ? entry.tier : 'common';
+    const t = tiers[tier];
+    return {
+      id, name: entry.title, core: entry.title,
+      hardware: HW.name, hardwareId: HW.id,
+      year: entry.year, maker: entry.maker, makerId: entry.maker,
+      genre: entry.genre, genreLabel: entry.genre,
+      tier, tierLabel: t.label,
+      base: entry.base,
+      buy: Math.round(entry.base * t.buyRatio / 100) * 100,
+      desc: entry.details,
+      rating: entry.rating,
+      authored: true,                       // 手書きデータ（自動生成の仮データと区別する）
+      // 評判が高いほど指名されやすい
+      demand: DEMAND[tier] * Math.pow(2000 / entry.base, 0.18) * (0.8 + (entry.rating || 3) / 10),
+    };
+  }
+
   function build(tiers, total, seed) {
     const rng = makeRng(seed >>> 0);
 
@@ -118,13 +141,30 @@
     const used = new Set();
     const list = [];
     let idSeq = 1;
+    const authoredMakers = [...new Set(((DATA && DATA.titles) || []).map(t => t.maker))];
+
+    // 手書きのソフトを先に入れ、その分だけ生成の枠を減らす
+    const authored = (DATA && DATA.titles) || [];
+    for (const entry of authored) {
+      if (list.length >= total) break;
+      const tier = tiers[entry.tier] ? entry.tier : 'common';
+      if (counts[tier] <= 0) continue;              // その区分の枠が尽きたら入れない
+      counts[tier]--;
+      used.add(entry.title);
+      list.push(fromData(entry, idSeq++, tiers));
+    }
 
     for (const tierKey of TIER_KEYS) {
       const tier = tiers[tierKey];
       for (let i = 0; i < counts[tierKey]; i++) {
         // 希少度が高いほど「レア寄りメーカー」が選ばれやすい
         const bias = { common: -1, mid: 0, rare: 1, ultra: 2 }[tierKey];
-        const maker = rWeighted(rng, MAKERS.map(m => [m, Math.pow(m.rarity, bias)]));
+        let maker = rWeighted(rng, MAKERS.map(m => [m, Math.pow(m.rarity, bias)]));
+        // 手書きデータのメーカーがあればそちらを使い、世界観を揃える
+        if (authoredMakers.length) {
+          maker = Object.assign({}, maker, { name: rPick(rng, authoredMakers) });
+          maker.id = maker.name;
+        }
         const genre = rPick(rng, maker.genres);
         // ハードの発売期間とメーカーの活動期間が重なるものだけを選ぶ
         const avail = HARDWARE.filter(h => h.span[0] <= (maker.until || 9999));
@@ -169,13 +209,19 @@
       }
     }
 
-    // 関連タイトル（同じ core を持つものをシリーズとみなす）
+    // 関連タイトル: 生成分は同じ core、手書き分は同じメーカー（＝同一開発者）で結ぶ
     const bySeries = new Map();
+    const byMaker = new Map();
     for (const s of list) {
-      if (!bySeries.has(s.core)) bySeries.set(s.core, []);
-      bySeries.get(s.core).push(s.id);
+      const k = s.authored ? null : s.core;
+      if (k) { if (!bySeries.has(k)) bySeries.set(k, []); bySeries.get(k).push(s.id); }
+      if (!byMaker.has(s.maker)) byMaker.set(s.maker, []);
+      byMaker.get(s.maker).push(s.id);
     }
-    for (const s of list) s.related = bySeries.get(s.core).filter(id => id !== s.id);
+    for (const s of list) {
+      const pool = s.authored ? byMaker.get(s.maker) : bySeries.get(s.core);
+      s.related = pool.filter(id => id !== s.id);
+    }
 
     list.sort((a, b) => a.year - b.year || a.id - b.id);
     return list;

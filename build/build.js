@@ -3,7 +3,7 @@
 /** src/*.js を1枚のHTMLに埋め込んで dist/prototype.html を作る（配布・共有用） */
 const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
-const parts = ['catalog.js', 'engine.js', 'policy.js', 'ui.js']
+const parts = ['software-data.js', 'catalog.js', 'engine.js', 'policy.js', 'ui.js']
   .map(f => fs.readFileSync(path.join(root, 'src', f), 'utf8'));
 const tpl = fs.readFileSync(path.join(__dirname, 'template.html'), 'utf8');
 const scripts = parts.map(src => '<script>\n' + src.replace(/<\/script>/gi, '<\\/script>') + '\n</script>').join('\n');
