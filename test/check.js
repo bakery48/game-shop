@@ -201,7 +201,12 @@ check('常連のセリフが来店回数に対して足りている', () => {
   // 1周で12〜18回来店するので、同じ言い回しの繰り返しがどれだけ残っているかを見る
   const counts = rg.regulars.map(r => (r.lines || []).length);
   const min = Math.min(...counts);
-  assert(min >= 4, `最少${min}本`);
+  assert(min >= 8, `最少${min}本（1周12〜18回来店するので8本は要る）`);
+  // 同じ常連の中で言い回しが重複していないか
+  for (const r of rg.regulars) {
+    const uniq = new Set(r.lines || []).size;
+    assert(uniq === (r.lines || []).length, `${r.name} のセリフに重複がある`);
+  }
   return `${min}〜${Math.max(...counts)}本（計${counts.reduce((a, b) => a + b, 0)}本）`;
 });
 check('regulars.json が参照するスキルが実在する', () => {
