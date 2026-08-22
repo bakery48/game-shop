@@ -89,6 +89,37 @@ check('src/software-data.js が data/*.json と一致', () => {
     'しきい値が違う（node build/gen-data.js を実行）');
 });
 
+check('伏線がカタログに必ず載る', () => {
+  // 区分の枠から溢れると伏線ごと消えるので、7本すべてが200本の中にいることを見る
+  const st = E.createGame({ seed: 1 });
+  const inCatalog = new Set(st.catalog.map(t => t.name));
+  const lore = sw.titles.filter(t => t.lore);
+  assert(lore.length >= 7, `伏線が${lore.length}本しかない`);
+  for (const t of lore) {
+    assert(inCatalog.has(t.title), `「${t.title}」が枠から溢れている`);
+    assert(t.details.includes('岸田'), `「${t.title}」に人名が入っていない`);
+    assert(['uncle', 'self'].includes(t.lore), `${t.title}: lore=${t.lore}`);
+  }
+  const self = lore.filter(t => t.lore === 'self').length;
+  return `${lore.length}本（叔父${lore.length - self} / 主人公${self}）`;
+});
+check('主人公の正体をUIに出していない', () => {
+  // 真エンドまで伏せる。ソースに直接名前を書かないこと（データ側にだけ置く）
+  const self = sw.lore.self.name;
+  for (const f of ['src/ui.js', 'src/engine.js', 'build/template.html', 'index.html']) {
+    const body = fs.readFileSync(path.join(root, f), 'utf8');
+    assert(!body.includes(self), `${f} に「${self}」が直書きされている`);
+  }
+  return `「${self}」はデータの中だけ`;
+});
+check('開店の一言が屋号を出し、年齢に触れない', () => {
+  const st = E.createGame({ seed: 1 });
+  const first = st.log[0].text;
+  assert(first.includes(sw.lore.shop), '屋号が出ていない');
+  assert(!/歳|定年|退職/.test(first), '年齢の手がかりを出してしまっている');
+  return first.slice(0, 34) + '…';
+});
+
 // ---------------- 3. カタログ ----------------
 section('カタログ生成');
 check('カタログ総数ぶんが区分どおりに揃う', () => {

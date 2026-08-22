@@ -17,7 +17,7 @@
   else root.Engine = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Catalog) {
 
-  const { makeRng, rInt, rPick, rWeighted } = Catalog;
+  const { makeRng, rInt, rPick, rWeighted, DATA } = Catalog;
 
   // ============================================================
   // バランス定数（調整はすべてここ）
@@ -193,6 +193,9 @@
   };
 
   const HALF_LABEL = ['前半（平日）', '後半（週末）'];
+
+  /** 先代（叔父）が遺した屋号。主人公の姓でもあるが、そうとは言わない */
+  const SHOP_NAME = (DATA && DATA.lore && DATA.lore.shop) || 'ゲームショップ きしだ';
 
   // ============================================================
   // 生成ヘルパ
@@ -1097,7 +1100,12 @@
     st.reputation = cfg.reputation.enabled ? cfg.reputation.start : cfg.reputation.max;
     st.startRegistered = st.registered.size;
     st.run = prev ? (prev.run || 1) + 1 : 1;
-    log(st, 'start', `開店。資金${st.cash.toLocaleString()}円、在庫${st.inv.length}点。`
+    // 開店の一言。年齢には触れないが、嘘もついていない（「仕事を辞めた」＝定年退職）。
+    // 店の屋号でプレイヤーに姓を渡しておく。図鑑に埋めた伏線はこれと突き合わせて効く
+    log(st, 'start',
+      `叔父の店を引き継ぐことになった。看板は『${SHOP_NAME}』のまま。`
+      + 'ちょっと前に仕事を辞めてから暇だったし、しばらくやってみるつもりだ。'
+      + `　資金${st.cash.toLocaleString()}円、在庫${st.inv.length}点。`
       + (prev ? `（前回の記録から図鑑${st.registered.size}本を引き継いだ）` : ''), 0);
 
     startTurn(st);
