@@ -134,10 +134,9 @@ check('伏線がカタログに必ず載る', () => {
   const st = E.createGame({ seed: 1 });
   const inCatalog = new Set(st.catalog.map(t => t.name));
   const lore = sw.titles.filter(t => t.lore);
-  assert(lore.length >= 7, `伏線が${lore.length}本しかない`);
+  assert(lore.length >= 8, `伏線が${lore.length}本しかない`);
   for (const t of lore) {
     assert(inCatalog.has(t.title), `「${t.title}」が枠から溢れている`);
-    assert(t.details.includes(sw.lore[t.lore].surname), `「${t.title}」に人名が入っていない`);
     assert(['uncle', 'self'].includes(t.lore), `${t.title}: lore=${t.lore}`);
   }
   const self = lore.filter(t => t.lore === 'self').length;
@@ -175,11 +174,24 @@ check('主人公の姓が看板と無関係', () => {
   // 「生涯なにも署名していない」男なので、看板の姓と一致してはいけない
   const u = sw.lore.uncle.surname, self = sw.lore.self.surname;
   assert(u !== self, `叔父と主人公が同じ姓（${u}）だと、看板が主人公の署名になってしまう`);
-  const selfClues = sw.titles.filter(t => t.lore === 'self');
-  for (const t of selfClues) {
+  for (const t of sw.titles.filter(x => x.lore === 'self')) {
     assert(!t.details.includes(u), `「${t.title}」に叔父の姓が混ざっている`);
   }
   return `叔父${u} / 主人公${self}（別姓）`;
+});
+check('図鑑に載る回数が叔父＞主人公になっている', () => {
+  // 叔父は「ゲームファンなら知っている名前」、主人公は「署名しなかった男」。
+  // ここが逆転すると、二人の対比も真エンドの落差も消える
+  const named = who => sw.titles.filter(t => t.details.includes(sw.lore[who].name)).length;
+  const u = named('uncle'), self = named('self');
+  assert(u >= 3, `叔父が${u}本しか載っていない。読んでいて覚える名前にならない`);
+  assert(self === 1, `主人公が${self}本に載っている。名前が残るのは1本だけにすること`);
+  assert(u > self, `叔父${u}本 ≦ 主人公${self}本 で逆転している`);
+
+  // 主人公側の残りは無名のまま置く（真エンドで初めて結びつく）
+  const anon = sw.titles.filter(t => t.lore === 'self' && !t.details.includes(sw.lore.self.surname));
+  assert(anon.length >= 3, `無名の痕跡が${anon.length}本しかない`);
+  return `叔父${u}本 / 主人公${self}本（＋無名の痕跡${anon.length}本）`;
 });
 check('開店の一言が屋号を出し、年齢に触れない', () => {
   const st = E.createGame({ seed: 1 });
