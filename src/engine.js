@@ -92,7 +92,12 @@
      * 常連キャラ（仕様書 8 節）。data/regulars.json の内容が使われる。
      * 来店回数が visitThresholds に達するとイベントが発生する。
      */
-    regulars: { visitChance: 0.45, enabled: true },
+    /**
+     * 常連キャラ（仕様書 8 節）。data/regulars.json の内容が使われる。
+     * 来客枠は1回ずつ「一般客か常連か」を抽選する。常連が枠に上乗せされるわけではない。
+     * 寂れた店に常連はついていないので、常連が当たる確率も評判に連動する。
+     */
+    regulars: { enabled: true, visitChance: [0.15, 0.5], oncePerTurn: true },
 
     // 店番（＝売る／売らないの判断が発生する客）
     customers: {
@@ -327,9 +332,11 @@
   }
 
   /** 次に来る常連を選ぶ。イベントが近い人ほど来やすい */
-  function pickRegular(st) {
+  function pickRegular(st, exclude) {
     if (!REGULARS.length) return null;
-    const pool = REGULARS.map(r => {
+    const avail = exclude ? REGULARS.filter(r => !exclude.has(r.id)) : REGULARS;
+    if (!avail.length) return null;
+    const pool = avail.map(r => {
       const s = regState(st, r.id);
       const next = THRESHOLDS[s.fired];
       // まだイベントが残っている常連を優先する
@@ -340,9 +347,10 @@
   }
 
   /** 常連の来店を1件作る。しきい値に達していればイベントになる */
-  function makeRegularCustomer(st) {
-    const r = pickRegular(st);
+  function makeRegularCustomer(st, exclude) {
+    const r = pickRegular(st, exclude);
     if (!r) return null;
+    if (exclude) exclude.add(r.id);
     const s = regState(st, r.id);
     s.visits++;
     const who = { id: r.id, name: r.name, title: r.title, visits: s.visits };
@@ -379,9 +387,13 @@
       n = rInt(st.rng, cfg.count[0], cfg.count[1]);
     }
     const queue = [];
+    const rg = st.cfg.regulars;
+    // 常連が当たる確率も評判に連動する（寂れた店にはまだ常連がついていない）
+    const chance = Array.isArray(rg.visitChance) ? byRep(st, rg.visitChance) : rg.visitChance;
+    const seen = rg.oncePerTurn ? new Set() : null;   // 同じ常連が1ターンに二度来ないように
     for (let i = 0; i < n; i++) {
-      if (st.cfg.regulars.enabled && REGULARS.length && st.rng() < st.cfg.regulars.visitChance) {
-        const c = makeRegularCustomer(st);
+      if (rg.enabled && REGULARS.length && st.rng() < chance) {
+        const c = makeRegularCustomer(st, seen);
         if (c) { queue.push(c); continue; }
       }
       const type = rWeighted(st.rng, Object.keys(cfg.weights).map(k => [k, cfg.weights[k]]));
