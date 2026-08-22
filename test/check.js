@@ -59,6 +59,57 @@ check('software.json の相場と発売年が妥当', () => {
       `${t.title} の year=${t.year} がハードの期間外`);
   }
 });
+check('発売年がハードの寿命の形になっている', () => {
+  // 1990と1998が1本ずつ、という不自然な平地を防ぐ。生成分も含めた200本で見る
+  const st = E.createGame({ seed: 1 });
+  const by = {};
+  for (const t of st.catalog) by[t.year] = (by[t.year] || 0) + 1;
+  const [lo, hi] = sw.hardware.span;
+  for (let y = lo; y <= hi; y++) {
+    assert(by[y] >= 5, `${y}年が${by[y] || 0}本しかない`);
+  }
+  // 山型: 中盤が立ち上がりと末期より厚い
+  const mid = (by[1994] || 0) + (by[1995] || 0) + (by[1996] || 0);
+  const ends = (by[lo] || 0) + (by[lo + 1] || 0) + (by[hi - 1] || 0) + (by[hi] || 0);
+  assert(mid > ends, `中盤${mid}本 ≦ 端${ends}本 で山になっていない`);
+  return Array.from({ length: hi - lo + 1 }, (_, i) => by[lo + i]).join('/');
+});
+check('タイトルに入っている年と発売年が一致', () => {
+  // 『全日本F1チャンピオンシップ'94』が1996年発売、のような事故を防ぐ
+  let n = 0;
+  for (const t of sw.titles) {
+    const m = t.title.match(/'(9\d)(?!\d)|(?<![0-9'\d])(9[0-8])(?![0-9])/);
+    if (!m) continue;
+    n++;
+    const yy = 1900 + Number(m[1] || m[2]);
+    assert(t.year === yy, `「${t.title}」が${t.year}年発売になっている`);
+  }
+  return `${n}本`;
+});
+check('シリーズの前後関係が崩れていない', () => {
+  const y = name => {
+    const t = sw.titles.find(x => x.title === name);
+    assert(t, `「${name}」が無い`);
+    return t.year;
+  };
+  const series = [
+    ['ドラゴン・レガシーIV 〜導かれし五つの意志〜', 'ドラゴン・レガシーV 〜天空の花嫁たち〜'],
+    ['聖剣のラストガーディアン', '聖剣のラストガーディアンII 〜復讐の刃〜'],
+    ['影狼伝説（かげろうでんせつ） 〜魔城の血風録〜', '影狼伝説II 〜魔界摩天楼の罠〜'],
+    ['スーパードリフト・レーサーX', 'スーパードリフト・レーサーX 2'],
+    ['エターナル・ルーン 〜失われた刻印〜', 'エターナル・ルーン外伝 〜青き海の航海詩〜'],
+    ['激走！駿馬ドリームブリーダー', "激走！駿馬ドリームブリーダー'96"],
+  ];
+  for (const [a, b] of series) assert(y(a) < y(b), `${a} (${y(a)}) → ${b} (${y(b)})`);
+  return `${series.length}シリーズ`;
+});
+check('叔父の年表が並び順どおり', () => {
+  const years = sw.titles.filter(t => t.lore === 'uncle').map(t => t.year).sort((a, b) => a - b);
+  assert(years.length >= 4, `${years.length}本`);
+  assert(years[0] === 1990, `最初が${years[0]}年（ハード立ち上げの年であること）`);
+  assert(new Set(years).size >= 4, '同じ年に固まっている');
+  return years.join(' → ');
+});
 check('regulars.json のイベント数がしきい値と一致', () => {
   const n = rg.visitThresholds.length;
   for (const r of rg.regulars) assert(r.events.length === n, `${r.name} は${r.events.length}件`);

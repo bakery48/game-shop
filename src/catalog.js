@@ -126,6 +126,22 @@
     };
   }
 
+  /**
+   * 発売年。一様乱数だとハードの寿命が平らになってしまうので、
+   * software.json の yearWeights（立ち上がり→山→末期）に沿って引く。
+   */
+  const YEAR_WEIGHTS = (DATA && DATA.hardware && DATA.hardware.yearWeights) || null;
+  function pickYear(rng, hw, until) {
+    const hi = Math.min(hw.span[1], until || 9999);
+    if (!YEAR_WEIGHTS) return rInt(rng, hw.span[0], hi);
+    const pool = [];
+    for (let y = hw.span[0]; y <= hi; y++) {
+      const w = YEAR_WEIGHTS[y] || YEAR_WEIGHTS[String(y)];
+      if (w > 0) pool.push([y, w]);
+    }
+    return pool.length ? rWeighted(rng, pool) : rInt(rng, hw.span[0], hi);
+  }
+
   function build(tiers, total, seed) {
     const rng = makeRng(seed >>> 0);
 
@@ -169,7 +185,7 @@
         // ハードの発売期間とメーカーの活動期間が重なるものだけを選ぶ
         const avail = HARDWARE.filter(h => h.span[0] <= (maker.until || 9999));
         const hw = rPick(rng, avail);
-        const year = rInt(rng, hw.span[0], Math.min(hw.span[1], maker.until || 9999));
+        const year = pickYear(rng, hw, maker.until);
 
         let core, name, guard = 0;
         do {
