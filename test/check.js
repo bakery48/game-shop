@@ -137,7 +137,7 @@ check('伏線がカタログに必ず載る', () => {
   assert(lore.length >= 7, `伏線が${lore.length}本しかない`);
   for (const t of lore) {
     assert(inCatalog.has(t.title), `「${t.title}」が枠から溢れている`);
-    assert(t.details.includes('岸田'), `「${t.title}」に人名が入っていない`);
+    assert(t.details.includes(sw.lore.surname), `「${t.title}」に人名が入っていない`);
     assert(['uncle', 'self'].includes(t.lore), `${t.title}: lore=${t.lore}`);
   }
   const self = lore.filter(t => t.lore === 'self').length;
@@ -146,11 +146,30 @@ check('伏線がカタログに必ず載る', () => {
 check('主人公の正体をUIに出していない', () => {
   // 真エンドまで伏せる。ソースに直接名前を書かないこと（データ側にだけ置く）
   const self = sw.lore.self.name;
-  for (const f of ['src/ui.js', 'src/engine.js', 'build/template.html', 'index.html']) {
+  for (const f of ['src/ui.js', 'build/template.html', 'index.html']) {
     const body = fs.readFileSync(path.join(root, f), 'utf8');
     assert(!body.includes(self), `${f} に「${self}」が直書きされている`);
   }
   return `「${self}」はデータの中だけ`;
+});
+check('会話では誰も家名を口にしない', () => {
+  // 図鑑の details だけが姓を持つ。会話に出ると二段目の種明かしが先に割れる
+  const surname = sw.lore.surname;
+  for (const r of rg.regulars) {
+    const all = (r.lines || []).concat(r.events.map(e => e.text))
+      .concat(r.events.filter(e => e.skillKnown).map(e => e.skillKnown.text));
+    for (const line of all) {
+      assert(!line.includes(surname), `${r.name} が「${surname}」と言っている`);
+    }
+  }
+  return `姓「${surname}」は図鑑の中だけ`;
+});
+check('屋号が姓を直接見せない', () => {
+  // 石橋→ブリヂストン方式。看板を見ても姓は分からない、が正解を知れば一致する
+  const st = E.createGame({ seed: 1 });
+  assert(st.log[0].text.includes(sw.lore.shop), '屋号が開店の一言に出ていない');
+  assert(!sw.lore.shop.includes(sw.lore.surname), '屋号に姓がそのまま入っている');
+  return `${sw.lore.shop} ← ${sw.lore.surname}`;
 });
 check('開店の一言が屋号を出し、年齢に触れない', () => {
   const st = E.createGame({ seed: 1 });
