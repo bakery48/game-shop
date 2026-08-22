@@ -421,6 +421,43 @@ check('種明かしのテキストが揃っている', () => {
   assert(R.registered.text.includes(sw.lore.shop), '一段目で屋号の暗号を明かしていない');
   return `一段目${R.registered.text.length}字 / 二段目${R.owned.text.length}字`;
 });
+check('種明かしの漢数字がデータと一致', () => {
+  // テキストは後から書き換える前提なので、埋め込んだ数字が取り残されるのを機械的に防ぐ
+  const D = '〇一二三四五六七八九';
+  const digits = n => String(n).split('').map(c => D[+c]).join('');   // 1990 → 一九九〇
+  const num = n => {                                                  // 1300 → 千三百
+    let out = '';
+    for (const [unit, kanji] of [[1000, '千'], [100, '百'], [10, '十']]) {
+      const k = Math.floor(n / unit) % 10;
+      if (k) out += (k === 1 ? '' : D[k]) + kanji;
+    }
+    const one = n % 10;
+    return (out + (one ? D[one] : '')) || D[0];
+  };
+
+  const R = sw.lore.reveals, L = sw.lore, [lo, hi] = sw.hardware.span;
+  const boy = sw.titles.find(t => t.title === '爆走！宅配ボーイ ターボ');
+  const crimson = sw.titles.find(t => t.title === 'クリムゾン・ブレイド 〜完全版〜');
+  const romCount = Number((crimson.details.match(/(\d+)本すべて/) || [])[1]);
+  assert(romCount > 0, 'クリムゾン・ブレイドの本数が読めない');
+
+  const want = [
+    [R.registered.text, num(E.BALANCE.catalogSize) + '本', 'カタログ総数'],
+    [R.owned.text, num(E.BALANCE.catalogSize) + '本', 'カタログ総数'],
+    [R.owned.text, digits(lo) + '年', 'ハード発売年'],
+    [R.owned.text, digits(hi) + '年', 'ハード終了年'],
+    [R.owned.text, digits(L.self.born) + '年', '主人公の生年'],
+    [R.owned.text, num(lo - L.self.born) + '歳', 'ハード発売時の年齢'],
+    [R.owned.text, num(hi - L.self.born) + '歳', 'ハード終了時の年齢'],
+    [R.owned.text, num(boy.year - L.self.born) + '歳', '宅配ボーイ発売時の年齢'],
+    [R.owned.text, num(boy.base) + '円', '宅配ボーイの相場'],
+    [R.owned.text, num(romCount) + '本', 'クリムゾン・ブレイドの交換ロム本数'],
+  ];
+  for (const [text, token, why] of want) {
+    assert(text.includes(token), `${why}「${token}」が本文に無い`);
+  }
+  return `${want.length}箇所`;
+});
 check('図鑑を全部登録すると一段目が出る', () => {
   const st = E.createGame({ seed: 1 });
   st.catalog.forEach(t => st.registered.add(t.id));
