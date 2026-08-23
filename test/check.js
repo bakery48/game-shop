@@ -299,6 +299,16 @@ check('開店の一言が屋号を出し、年齢に触れない', () => {
   assert(!/歳|定年|退職/.test(first), '年齢の手がかりを出してしまっている');
   return first.slice(0, 34) + '…';
 });
+check('叔父の死に方が年齢を悟らせない', () => {
+  // 老衰だと「叔父が高齢＝甥も高齢」が自動的に成立してしまう。事故で切ってある
+  assert(sw.lore.uncle.cause, '死因が設定されていない');
+  assert(!/老衰|病|衰弱/.test(sw.lore.uncle.cause), `死因が${sw.lore.uncle.cause}では年齢が透ける`);
+  const first = E.createGame({ seed: 1 }).log[0].text;
+  assert(/元気/.test(first), '開店の一言に「元気だった」のミスリードが無い');
+  // 種明かしの二段目でそれを回収していること
+  assert(sw.lore.reveals.owned.text.includes('元気'), '二段目で回収していない');
+  return `${sw.lore.uncle.cause} / 「元気だったのに」→ 二段目で回収`;
+});
 
 // ---------------- 3. カタログ ----------------
 section('カタログ生成');
@@ -452,6 +462,7 @@ check('種明かしの漢数字がデータと一致', () => {
     [R.owned.text, num(boy.year - L.self.born) + '歳', '宅配ボーイ発売時の年齢'],
     [R.owned.text, num(boy.base) + '円', '宅配ボーイの相場'],
     [R.owned.text, num(romCount) + '本', 'クリムゾン・ブレイドの交換ロム本数'],
+    [R.owned.text, num(L.uncle.died - L.uncle.born) + '歳', '叔父の没年齢'],
   ];
   for (const [text, token, why] of want) {
     assert(text.includes(token), `${why}「${token}」が本文に無い`);
