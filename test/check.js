@@ -164,6 +164,32 @@ check('regulars.json が参照するタイトルが実在する', () => {
     if (e.title) assert(titles.has(e.title), `${r.name}: 「${e.title}」が無い`);
   }
 });
+check('常連の年齢がつじつま合っている', () => {
+  const now = sw.lore.present, [lo, hi] = sw.hardware.span;
+  const age = r => now - r.born;
+  const by = {};
+  for (const r of rg.regulars) {
+    assert(r.born, `${r.name} に born が無い`);
+    assert(r.ageNote, `${r.name} に ageNote が無い`);
+    by[r.id] = r;
+  }
+  // 素性から外れていないか
+  const yuta = age(by.yuta);
+  assert(yuta >= 6 && yuta <= 12, `ゆうたが${yuta}歳では小学生でない`);
+  assert(by.kurosawa.born + 22 <= 1996, '黒沢が1996年に社会人として若すぎる');
+  assert(by.hayami.born + 22 <= hi, '速水がスーエレ期にライターとして若すぎる');
+  const uAtEnd = hi - by.urushibara.born;
+  assert(uAtEnd >= 6 && uAtEnd <= 18, `漆原がスーエレ末期に${uAtEnd}歳では「小学生の俺」に合わない`);
+  assert(age(by.satoe) - 25 >= 40, 'サトエさんに独立した息子と孫がいるには若すぎる');
+  return rg.regulars.map(r => `${r.name}${age(r)}`).join(' ');
+});
+check('常連の年齢をUIに出していない', () => {
+  // 年齢が並ぶと、そこから主人公の年齢が透ける。主人公の名前と同じ扱いにする
+  for (const f of ['src/ui.js', 'build/template.html', 'index.html']) {
+    const body = fs.readFileSync(path.join(root, f), 'utf8');
+    assert(!/\bborn\b|ageNote/.test(body), `${f} が常連の生年を参照している`);
+  }
+});
 check('常連の呼び方が主人公の年齢を漏らさない', () => {
   // 名前でも年齢でも呼ばせない。「おじさん」「おじいちゃん」は一発で叙述トリックが壊れる
   const banned = /おじいちゃん|おじさん|お兄さん|お若い|若く見え/;
