@@ -183,6 +183,25 @@ check('常連の年齢がつじつま合っている', () => {
   assert(age(by.satoe) - 25 >= 40, 'サトエさんに独立した息子と孫がいるには若すぎる');
   return rg.regulars.map(r => `${r.name}${age(r)}`).join(' ');
 });
+check('スーエレを知らない世代が実体験を語っていない', () => {
+  // ゆうた（2016年生）が「当時」を語るような事故を防ぐ。
+  // 「」の中は他人の発言なので外す
+  const [, hi] = sw.hardware.span;
+  const marker = /当時|発売日に買|子供の頃/;
+  let checked = 0;
+  for (const r of rg.regulars) {
+    if (r.born + 6 <= hi) continue;          // 当時6歳以上なら実体験を語ってよい
+    checked++;
+    const all = (r.lines || []).concat(r.events.map(e => e.text));
+    for (const line of all) {
+      const said = line.replace(/「[^」]*」/g, '');
+      const hit = said.match(marker);
+      assert(!hit, hit && `${r.name}（${r.born}年生）が「${hit[0]}」と実体験を語っている`);
+    }
+  }
+  assert(checked > 0, '世代外の常連がいない');
+  return `${checked}人を検査`;
+});
 check('常連の年齢をUIに出していない', () => {
   // 年齢が並ぶと、そこから主人公の年齢が透ける。主人公の名前と同じ扱いにする
   for (const f of ['src/ui.js', 'build/template.html', 'index.html']) {
