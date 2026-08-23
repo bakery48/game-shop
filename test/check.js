@@ -186,21 +186,28 @@ check('常連の年齢がつじつま合っている', () => {
 check('スーエレを知らない世代が実体験を語っていない', () => {
   // ゆうた（2016年生）が「当時」を語るような事故を防ぐ。
   // 「」の中は他人の発言なので外す
-  const [, hi] = sw.hardware.span;
-  const marker = /当時|発売日に買|子供の頃/;
-  let checked = 0;
+  const [lo, hi] = sw.hardware.span;
+  const rules = [
+    // ハードが終わったあとに生まれた人は、そもそも何も語れない
+    { when: r => r.born > hi, marker: /当時|発売日に買|子供の頃/, why: '実体験を語っている' },
+    // 発売日に並ぶには、ハード発売時に6歳は要る
+    { when: r => r.born > lo - 6, marker: /発売日に買/, why: '発売日に買えた年齢でない' },
+  ];
+  let n = 0;
   for (const r of rg.regulars) {
-    if (r.born + 6 <= hi) continue;          // 当時6歳以上なら実体験を語ってよい
-    checked++;
     const all = (r.lines || []).concat(r.events.map(e => e.text));
-    for (const line of all) {
-      const said = line.replace(/「[^」]*」/g, '');
-      const hit = said.match(marker);
-      assert(!hit, hit && `${r.name}（${r.born}年生）が「${hit[0]}」と実体験を語っている`);
+    for (const rule of rules) {
+      if (!rule.when(r)) continue;
+      n++;
+      for (const line of all) {
+        const said = line.replace(/「[^」]*」/g, '');   // 「」の中は他人の発言
+        const hit = said.match(rule.marker);
+        assert(!hit, hit && `${r.name}（${r.born}年生）が「${hit[0]}」— ${rule.why}`);
+      }
     }
   }
-  assert(checked > 0, '世代外の常連がいない');
-  return `${checked}人を検査`;
+  assert(n > 0, '世代外の常連がいない');
+  return `${n}件の判定`;
 });
 check('常連の年齢をUIに出していない', () => {
   // 年齢が並ぶと、そこから主人公の年齢が透ける。主人公の名前と同じ扱いにする
