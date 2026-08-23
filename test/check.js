@@ -191,8 +191,11 @@ check('常連の年齢をUIに出していない', () => {
   }
 });
 check('常連の呼び方が主人公の年齢を漏らさない', () => {
-  // 名前でも年齢でも呼ばせない。「おじさん」「おじいちゃん」は一発で叙述トリックが壊れる
-  const banned = /おじいちゃん|おじさん|お兄さん|お若い|若く見え/;
+  // 名前でも年齢でも呼ばせない。
+  // 「おじさん」は禁止しない——子供にとっては25〜70歳が全部「おじさん」で、
+  // むしろ「おじいさんではない」と錯覚させる方向に効く。
+  // 「おじいちゃん」「お兄さん」は歳を絞ってしまうので禁止。
+  const banned = /おじいちゃん|おじいさん|お兄さん|お若い|若く見え/;
   const self = sw.lore.self.name;
   for (const r of rg.regulars) {
     assert(r.calls, `${r.name} に calls が無い`);
@@ -208,20 +211,26 @@ check('常連の呼び方が主人公の年齢を漏らさない', () => {
   for (const r of rg.regulars) calls[r.calls] = (calls[r.calls] || 0) + 1;
   return Object.entries(calls).map(([k, v]) => `${k}${v}人`).join(' / ');
 });
-check('「店長」と呼ぶ常連が実際にそう呼んでいる', () => {
-  const users = rg.regulars.filter(r => r.calls.startsWith('店長'));
-  assert(users.length >= 1, '店長呼びの常連がいない');
-  for (const r of users) {
-    const used = (r.lines || []).some(l => l.includes(r.calls));
-    assert(used, `${r.name} は calls=${r.calls} なのに一度も使っていない`);
-  }
-  // 逆に「あんた」派が店長と呼んでいないこと
-  for (const r of rg.regulars.filter(x => !x.calls.startsWith('店長'))) {
-    for (const l of (r.lines || [])) {
-      assert(!l.includes('店長'), `${r.name}（${r.calls}派）が店長と呼んでいる`);
+check('常連が自分の呼び方だけを使っている', () => {
+  const forms = [...new Set(rg.regulars.map(r => r.calls))];
+  for (const r of rg.regulars) {
+    const lines = r.lines || [];
+    assert(lines.some(l => l.includes(r.calls)),
+      `${r.name} は calls=${r.calls} なのに一度も使っていない`);
+    // 他人の呼び方が混ざっていないか。
+    // 「」の中は他人の発言（漆原の母親など）なので外してから見る。
+    // 「店長」と「店長さん」のような包含関係も除く
+    for (const f of forms) {
+      if (f === r.calls || r.calls.includes(f) || f.includes(r.calls)) continue;
+      for (const l of lines) {
+        const said = l.replace(/「[^」]*」/g, '');
+        assert(!said.includes(f), `${r.name}（${r.calls}派）が「${f}」と呼んでいる`);
+      }
     }
   }
-  return users.map(r => r.name).join('・');
+  const by = {};
+  for (const r of rg.regulars) (by[r.calls] = by[r.calls] || []).push(r.name);
+  return Object.entries(by).map(([k, v]) => `${k}:${v.join('・')}`).join(' / ');
 });
 check('常連のセリフが来店回数に対して足りている', () => {
   // 1周で12〜18回来店するので、同じ言い回しの繰り返しがどれだけ残っているかを見る
