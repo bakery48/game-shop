@@ -2670,8 +2670,11 @@ pre {
         start:  [0.35, 0.50, 0.15],   // 開店在庫。叔父が遺した売れ残り
       },
       // 取り寄せは割増を払って業者に探させるので、状態は「並」で固定。
-      // ここを抽選にすると、料金が状態に連動しないぶん取り寄せだけが得になる
+      // ただし激レアだけは美品しか存在しないので、そちらが優先される。
+      // 料金も届く状態に連動させる（連動させないと激レアの取り寄せだけが得になる）
       orderCond: 1,
+      // 激レアは美品しか現存しない。数が少なく、持ち主が大事にしてきたものだけが残っている
+      ultraAlwaysMint: true,
     },
 
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
@@ -2732,10 +2735,22 @@ pre {
     return rWeighted(st.rng, pairs);
   }
 
+  /**
+   * 激レアは美品しか現存しない。抽選結果より優先する。
+   * 経路をまたいで効かせたいので、状態を決める全経路がここを通る
+   */
+  function fixCond(st, title, cond) {
+    const c = st.cfg.condition;
+    if (!c || !c.enabled) return cond;
+    if (c.ultraAlwaysMint && title && title.tier === 'ultra') return c.grades.length - 1;
+    return cond;
+  }
   /** 仕入れ経路ごとの状態抽選。cond は grades のインデックス */
-  function rollCond(st, source) {
+  function rollCond(st, source, title) {
     const c = st.cfg.condition;
     if (!c || !c.enabled) return 1;
+    const forced = fixCond(st, title, null);
+    if (forced != null) return forced;
     const mix = (c.mix && c.mix[source]) || c.mix.bulk;
     let r = st.rng();
     for (let i = 0; i < mix.length; i++) { r -= mix[i]; if (r <= 0) return i; }
@@ -2763,7 +2778,7 @@ pre {
       display: false,
       markdown: false,
       protect: false,      // 非売品（コレクション用に確保）。客も自動売上も手を出さない
-      cond: title ? rollCond(st, source || 'bulk') : null,
+      cond: title ? rollCond(st, source || 'bulk', title) : null,
       acquiredWeek: st.week,
     };
   }
@@ -2794,8 +2809,16 @@ pre {
 
   const ownedIds = st => new Set(st.inv.filter(i => !i.junk).map(i => i.titleId));
   /** 取り寄せ料金（相場＋割増） */
-  const orderCost = (st, t) =>
-    Math.round(t.base * st.cfg.order.premium * (1 + skill(st, 'order')) / 100) * 100;
+  const orderCost = (st, t) => {
+    const c = st.cfg.condition;
+    let m = 1;
+    if (c && c.enabled) {
+      const cond = fixCond(st, t, c.orderCond);
+      const g = c.grades[cond];
+      if (g) m = g.mult;
+    }
+    return Math.round(t.base * m * st.cfg.order.premium * (1 + skill(st, 'order')) / 100) * 100;
+  };
   /** 取り寄せられるソフト＝登録済みだが今は持っていないもの */
   function orderable(st) {
     if (st.week < Math.max(st.cfg.order.fromWeek, st.cfg.unlock.order || 1)) return [];
@@ -2837,7 +2860,7 @@ pre {
     if (freeSlots(st) <= 0) return null;
     st.totals.acquired++;
     const item = makeItem(st, title, opts && opts.source);
-    if (opts && opts.cond != null) item.cond = opts.cond;
+    if (opts && opts.cond != null) item.cond = fixCond(st, title, opts.cond);
     st.inv.push(item);
     if (title) st.registered.add(title.id);            // 図鑑登録は一度でも入手すれば永続
     if (opts && opts.display && freeDisplay(st) > 0) item.display = true;
@@ -3263,7 +3286,7 @@ pre {
     const target = pickTitle(st, tier,
       { ownedPenalty: cfg.single.ownedPenalty * (1 - skill(st, 'unownedBias')) });
     const ar = cfg.single.askRatio, rr = cfg.single.rivalRatio;
-    const singleCond = rollCond(st, 'single');
+    const singleCond = rollCond(st, 'single', target);
     const singleMult = (cfg.condition && cfg.condition.enabled)
       ? cfg.condition.grades[singleCond].mult : 1;
     const singleOffer = target ? {
@@ -3379,7 +3402,7 @@ pre {
         st.totals.purchases += cost;
         st.totals.orderCount++;
         spent += cost;
-        addItem(st, t, { cond: st.cfg.condition.orderCond });
+        addItem(st, t, { cond: st.cfg.condition.orderCond });   // 激レアは fixCond で美品になる
         res.gained.push(t.id);
         done.push(t.name);
       }

@@ -618,6 +618,35 @@ check('状態が売値に効く', () => {
   assert(Math.abs(mk(2) / t.base - g[2].mult) < 0.01, '美品の倍率が効いていない');
   return `${mk(0).toLocaleString()} / ${mk(1).toLocaleString()} / ${mk(2).toLocaleString()}`;
 });
+check('激レアは美品しか存在しない', () => {
+  const mint = E.BALANCE.condition.grades.length - 1;
+  // まとめ買い・処分品・単品入札・イベント・取り寄せ、どの経路から入っても美品であること
+  let n = 0;
+  for (let s = 0; s < 12; s++) {
+    const g = E.createGame({ seed: 800 + s });
+    P.playAll(g);
+    for (const i of g.inv) {
+      const t = E.titleOf(g, i);
+      if (!t || t.tier !== 'ultra') continue;
+      n++;
+      assert(i.cond === mint, `「${t.name}」が${E.condLabel(g, i)}になっている`);
+    }
+  }
+  assert(n > 0, '激レアが1本も出ていない');
+  return `${n}点すべて美品`;
+});
+check('激レアの取り寄せ料金が美品ぶん高い', () => {
+  // 料金を状態に連動させないと、激レアの取り寄せだけが5割得になる
+  const st = E.createGame({ seed: 8 });
+  const g = E.BALANCE.condition.grades;
+  const u = st.catalog.find(x => x.tier === 'ultra');
+  const m = st.catalog.find(x => x.tier === 'mid');
+  const ratio = t => E.orderCost(st, t) / (t.base * E.BALANCE.order.premium);
+  assert(Math.abs(ratio(u) - g[g.length - 1].mult) < 0.02, `激レアの倍率 ${ratio(u).toFixed(2)}`);
+  assert(Math.abs(ratio(m) - g[E.BALANCE.condition.orderCond].mult) < 0.02,
+    `中堅の倍率 ${ratio(m).toFixed(2)}`);
+  return `激レア×${ratio(u).toFixed(2)} / 中堅×${ratio(m).toFixed(2)}`;
+});
 check('図鑑は状態を問わない', () => {
   // 登録も所持も「どの状態でも1本は1本」。真エンドの条件を変えないための一線
   const st = E.createGame({ seed: 4 });
