@@ -181,7 +181,7 @@
      * 行動フェイズの解禁週（仕様書 3 節の週フェーズ設計に対応）。
      * 1〜10週は資金繰りを覚える期間なので、大きく張れる選択肢を出さない。
      */
-    unlock: { bulk: 1, junk: 1, organize: 1, single: 11, expand: 11, order: 11 },
+    unlock: { bulk: 1, junk: 1, organize: 1, single: 16, expand: 11, order: 26 },
 
     /**
      * 取り寄せ（仕様書 3 節「46〜50週: 最後の数本を狙い撃つ」に対応する手段）。
