@@ -279,12 +279,13 @@
     };
 
     if (o.bulk) {
-      mk('オークション（まとめ買い）',
+      mk('まとめ買い（業者オークション）',
         `${o.bulk.lot.count}点セット — ${yen(o.bulk.cost)}`,
         '入札する', () => { E.doAction(st, 'bulk', {}); render(); },
         st.cash < o.bulk.cost,
-        o.bulk.hint + '｜棚に入りきらない分はその場で業者に流れます');
-    } else locked('オークション（まとめ買い）', 'bulk');
+        o.bulk.hint + '｜棚に入りきらない分はその場で業者に流れます'
+        + '｜業者どうしの取引なので、町の評判は動きません');
+    } else locked('まとめ買い（業者オークション）', 'bulk');
 
     if (!E.unlocked(st, 'single')) locked('オークション（単品入札）', 'single');
     if (o.single) {
@@ -360,11 +361,12 @@
     }
 
     if (o.junk) {
-      mk('処分品引取',
-        `雑多な箱 ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
+      mk('処分品引取（近所の人から）',
+        `押し入れの整理もの ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
         '引き取る', () => { E.doAction(st, 'junk', {}); render(); },
         st.cash < o.junk.cost,
-        'ほとんどガラクタですが並品が数本混じります');
+        '安い並品ばかりで状態も良くありませんが、'
+        + `引き取ると町での評判が上がります（+${st.cfg.reputation.gain.junkLot}）`);
     } else locked('処分品引取', 'junk');
 
     mk('店舗・保管庫の整理',

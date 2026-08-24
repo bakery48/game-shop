@@ -618,6 +618,33 @@ check('処分品引取は少量・安価・レアなし', () => {
   assert(E.BALANCE.condition.mix.junk[mint] === 0, '処分品引取から美品が出ている');
   return `引取${j.items[0]}〜${j.items[1]}点 / まとめ買い${b.items[0]}〜${b.items[1]}点`;
 });
+check('処分品引取だけが評判を上げる', () => {
+  // 引取は劣化まとめ買いになりがち。「業者相手か、町の人相手か」を評判で分ける
+  const g = E.BALANCE.reputation.gain;
+  assert(g.junkLot > 0, `junkLot が ${g.junkLot}`);
+  const at = (key, seed) => {
+    const st = E.createGame({ seed });
+    // 接客を片付けて行動フェイズに入り、その行動だけを取って評判の差を見る
+    let guard = 0;
+    while (!st.ended && guard++ < 400) {
+      while (st.phase === 'shop' && st.current) E.answer(st, false);
+      if (st.phase !== 'action') break;
+      const o = st.offers;
+      if (o && o[key] && st.cash >= (o[key].cost || 0)) {
+        const before = st.reputation;
+        E.doAction(st, key, {});
+        return Math.round((st.reputation - before) * 100) / 100;
+      }
+      E.doAction(st, 'rest', {});
+    }
+    return null;
+  };
+  const j = at('junk', 31), b = at('bulk', 31);
+  assert(j != null && b != null, '行動の機会が来なかった');
+  assert(Math.abs(j - g.junkLot) < 1e-6, `処分品引取で評判が ${j} しか動いていない`);
+  assert(b === 0, `まとめ買いで評判が ${b} 動いている`);
+  return `引取 +${j} / まとめ買い ${b}`;
+});
 check('まとめ買いの状態の期待値が1.0', () => {
   // ここが1.0から外れると、状態を入れただけで経済が動いてしまう。
   // わざと傾けるのは数値調整の仕事で、この機能の仕事ではない

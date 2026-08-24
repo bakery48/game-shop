@@ -2551,6 +2551,7 @@ pre {
       sellerRareBonus: 0.10,      // 評判100で持ち込みのレア率が+10ポイント（劇的にはしない）
       gain: {
         buyFromCustomer: 1.5,     // 持ち込みを買い取った
+        junkLot: 1.5,             // 近所の処分品を引き取った（業者との取引では上がらない）
         refuseSeller: -0.6,       // 持ち込みを断った
         sellToCustomer: 0.5,      // 指名買いに応じた
         refuseBuyer: -0.8,        // 指名買いを断った
@@ -3358,6 +3359,8 @@ pre {
       if (overflowCash) { st.cash += overflowCash; st.totals.wholesale += overflowCash; }
       res.overflow = overflow;
       res.overflowCash = overflowCash;
+      // 業者との取引は誰も見ていないが、近所の人の処分品を引き取るのは町に付き合うこと
+      if (key === 'junk') rep(st, st.cfg.reputation.gain.junkLot);
       const label = key === 'bulk' ? 'まとめ買い' : '処分品引取';
       log(st, key, `${label}: ${added}点を棚に入れた（うちソフト${res.gained.length}点）`
         + (overflow ? ` ※枠に入らない${overflow}点はその場で業者に流した（+${overflowCash.toLocaleString()}円）` : ''),
@@ -4259,12 +4262,13 @@ pre {
     };
 
     if (o.bulk) {
-      mk('オークション（まとめ買い）',
+      mk('まとめ買い（業者オークション）',
         `${o.bulk.lot.count}点セット — ${yen(o.bulk.cost)}`,
         '入札する', () => { E.doAction(st, 'bulk', {}); render(); },
         st.cash < o.bulk.cost,
-        o.bulk.hint + '｜棚に入りきらない分はその場で業者に流れます');
-    } else locked('オークション（まとめ買い）', 'bulk');
+        o.bulk.hint + '｜棚に入りきらない分はその場で業者に流れます'
+        + '｜業者どうしの取引なので、町の評判は動きません');
+    } else locked('まとめ買い（業者オークション）', 'bulk');
 
     if (!E.unlocked(st, 'single')) locked('オークション（単品入札）', 'single');
     if (o.single) {
@@ -4340,11 +4344,12 @@ pre {
     }
 
     if (o.junk) {
-      mk('処分品引取',
-        `雑多な箱 ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
+      mk('処分品引取（近所の人から）',
+        `押し入れの整理もの ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
         '引き取る', () => { E.doAction(st, 'junk', {}); render(); },
         st.cash < o.junk.cost,
-        'ほとんどガラクタですが並品が数本混じります');
+        '安い並品ばかりで状態も良くありませんが、'
+        + `引き取ると町での評判が上がります（+${st.cfg.reputation.gain.junkLot}）`);
     } else locked('処分品引取', 'junk');
 
     mk('店舗・保管庫の整理',

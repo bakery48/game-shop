@@ -96,6 +96,7 @@
       sellerRareBonus: 0.10,      // 評判100で持ち込みのレア率が+10ポイント（劇的にはしない）
       gain: {
         buyFromCustomer: 1.5,     // 持ち込みを買い取った
+        junkLot: 1.5,             // 近所の処分品を引き取った（業者との取引では上がらない）
         refuseSeller: -0.6,       // 持ち込みを断った
         sellToCustomer: 0.5,      // 指名買いに応じた
         refuseBuyer: -0.8,        // 指名買いを断った
@@ -903,6 +904,8 @@
       if (overflowCash) { st.cash += overflowCash; st.totals.wholesale += overflowCash; }
       res.overflow = overflow;
       res.overflowCash = overflowCash;
+      // 業者との取引は誰も見ていないが、近所の人の処分品を引き取るのは町に付き合うこと
+      if (key === 'junk') rep(st, st.cfg.reputation.gain.junkLot);
       const label = key === 'bulk' ? 'まとめ買い' : '処分品引取';
       log(st, key, `${label}: ${added}点を棚に入れた（うちソフト${res.gained.length}点）`
         + (overflow ? ` ※枠に入らない${overflow}点はその場で業者に流した（+${overflowCash.toLocaleString()}円）` : ''),
