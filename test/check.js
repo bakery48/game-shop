@@ -183,6 +183,24 @@ check('常連の年齢がつじつま合っている', () => {
   assert(age(by.satoe) - 25 >= 40, 'サトエさんに独立した息子と孫がいるには若すぎる');
   return rg.regulars.map(r => `${r.name}${age(r)}`).join(' ');
 });
+check('常連の守備範囲が混ざっていない', () => {
+  // 蜷川=モノの価値 / 大町=商売 / 漆原=知識（開発秘話）。
+  // 誰でも言えそうな話題ほど、持ち主を決めておかないと薄まる
+  const owns = [
+    { id: 'urushibara', ng: /値付け|値段|相場|いくらで売/, why: '値段の話は蜷川と大町の持ち札' },
+    { id: 'yuta', ng: /現存数|開発陣|仮タイトル/, why: 'うんちくは漆原の持ち札' },
+  ];
+  for (const o of owns) {
+    const r = rg.regulars.find(x => x.id === o.id);
+    assert(r, `${o.id} がいない`);
+    for (const l of (r.lines || [])) {
+      const said = l.replace(/「[^」]*」/g, '');
+      const hit = said.match(o.ng);
+      assert(!hit, hit && `${r.name}が「${hit[0]}」— ${o.why}`);
+    }
+  }
+  return owns.map(o => o.id).join('・');
+});
 check('スーエレを知らない世代が実体験を語っていない', () => {
   // ゆうた（2016年生）が「当時」を語るような事故を防ぐ。
   // 「」の中は他人の発言なので外す
