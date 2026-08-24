@@ -593,6 +593,31 @@ check('全在庫に有効な状態が付く', () => {
   for (const i of st.inv) if (!i.junk) by[E.condLabel(st, i)] = (by[E.condLabel(st, i)] || 0) + 1;
   return Object.entries(by).map(([k, v]) => `${k}${v}`).join(' ');
 });
+check('どのロットにもガラクタが入らない', () => {
+  // 処分品引取もまとめ買らも、中身は全部が実在のソフト
+  for (const key of ['bulk', 'junk']) {
+    assert(!E.BALANCE[key].mix.junk, `${key} にガラクタが ${E.BALANCE[key].mix.junk}`);
+  }
+  assert(!E.BALANCE.bulk.earlyMix.junk, 'bulk の序盤 mix にガラクタが残っている');
+  let n = 0;
+  for (let s = 0; s < 8; s++) {
+    const st = E.createGame({ seed: 900 + s });
+    P.playAll(st);
+    n += st.inv.filter(i => i.junk).length;
+  }
+  assert(n === 0, `終局時にガラクタが${n}点残っている`);
+  return '8シードで0点';
+});
+check('処分品引取は少量・安価・レアなし', () => {
+  // まとめ買いとの差別化。規模ではなく「近所の人から引き取る」という相手の違い
+  const j = E.BALANCE.junk, b = E.BALANCE.bulk;
+  assert(j.items[1] < b.items[0], `点数が重なっている（引取${j.items} / まとめ買い${b.items}）`);
+  assert(!j.mix.rare && !j.mix.ultra, '処分品引取からレア以上が出ている');
+  assert(b.mix.rare > 0, 'まとめ買いからレアが出ない');
+  const mint = E.BALANCE.condition.grades.length - 1;
+  assert(E.BALANCE.condition.mix.junk[mint] === 0, '処分品引取から美品が出ている');
+  return `引取${j.items[0]}〜${j.items[1]}点 / まとめ買い${b.items[0]}〜${b.items[1]}点`;
+});
 check('まとめ買いの状態の期待値が1.0', () => {
   // ここが1.0から外れると、状態を入れただけで経済が動いてしまう。
   // わざと傾けるのは数値調整の仕事で、この機能の仕事ではない
@@ -657,27 +682,26 @@ check('図鑑は状態を問わない', () => {
   assert(st.registered.has(t.id), '登録されていない');
 });
 check('自動プレイが状態の良い1本を残す', () => {
-  // 終局後ではなく営業中で見る。最終ターンの仕入れは並べ直す前にゲームが終わるため
-  const st = E.createGame({ seed: 21 });
-  while (!st.ended && st.week < 40) P.playTurn(st);
-  const byTitle = new Map();
-  for (const i of st.inv) {
-    if (i.junk) continue;
-    if (!byTitle.has(i.titleId)) byTitle.set(i.titleId, []);
-    byTitle.get(i.titleId).push(i);
+  // 状況を直接作って判定する。通しで回すと重複が売れたあとの残骸しか見られない
+  const st = E.createGame({ seed: 21, balance: { unlock: { organize: 1 } } });
+  st.week = 40;                                   // 非売品札を付ける時期に入れる
+  const mint = E.BALANCE.condition.grades.length - 1;
+  const picks = st.catalog.filter(t => t.tier === 'mid').slice(0, 4);
+  st.inv = [];
+  for (const t of picks) {                        // 同じタイトルを傷あり→美品の順で積む
+    for (const cond of [0, mint]) {
+      st.inv.push({ uid: st.uidSeq++, titleId: t.id, junk: false, cond,
+        display: false, markdown: false, protect: false, acquiredWeek: 1 });
+    }
   }
-  let bad = 0, checked = 0;
-  for (const [, list] of byTitle) {
-    if (list.length < 2) continue;
+  P.arrangeDisplay(st);
+  for (const t of picks) {
+    const list = st.inv.filter(i => i.titleId === t.id);
     const kept = list.filter(i => i.protect);
-    if (!kept.length) continue;
-    checked++;
-    const best = Math.max(...list.map(i => i.cond));
-    if (kept.some(i => i.cond < best)) bad++;
+    assert(kept.length === 1, `「${t.name}」の非売品が${kept.length}本`);
+    assert(kept[0].cond === mint, `「${t.name}」で${E.condLabel(st, kept[0])}を残している`);
   }
-  assert(checked > 0, '重複が無く判定できない');
-  assert(bad === 0, `${bad}/${checked} 件で状態の悪いほうを残している`);
-  return `40週時点の重複${checked}件を確認`;
+  return `${picks.length}タイトルで美品を残した`;
 });
 check('自動プレイが状態を見て値踏みする', () => {
   // 固定の閾値だと、安い傷あり品ばかり買って美品を一度も買わない逆選択が起きる

@@ -20,7 +20,7 @@
     protectRareFromWeek: 12, // レアはこの週から確保する
     rareSellUntil: 38,     // レアを売っていいのはこの週まで
     singleBidRatio: 0.85,  // 単品入札の入札額（基準相場比）
-    junkMinSlots: 16,      // 処分品引取に必要な空き枠
+    junkMinSlots: 6,       // 処分品引取に必要な空き枠（点数が減ったので緩めた）
     bulkMinSlots: 8,       // まとめ買いに必要な空き枠（あふれた分は業者行き）
     expandWhenSlotsBelow: 10,
     clerkCashFloor: 450000,  // これだけ現金があるなら人手を入れる
