@@ -103,6 +103,18 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 習得済みの交渉術は別セリフ＋現金`,
       alt.shown && alt.gained === 30000, `${alt.gained}円`);
 
+    // 在庫表に状態列が出て、持ち込みカードにも状態が出るか
+    const cond = await page.evaluate(() => {
+      const head = [...document.querySelectorAll('#inv th')].map(x => x.textContent);
+      st.phase = 'shop'; st.queue = [];
+      const t = st.catalog.find(x => x.tier === 'mid');
+      st.current = { type: 'seller', titleId: t.id, ask: 5000, cond: 2 };
+      window.renderUI();
+      const card = document.getElementById('phase').textContent;
+      return { col: head.includes('状態'), seller: card.includes('美品') };
+    });
+    check(`${scheme}: ソフトの状態が表示される`, cond.col && cond.seller, JSON.stringify(cond));
+
     // 種明かしが読めて、閉じると消えるか
     const reveal = await page.evaluate(() => {
       st.catalog.forEach(t => st.registered.add(t.id));

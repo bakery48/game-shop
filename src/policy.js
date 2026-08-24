@@ -47,13 +47,16 @@
   }
 
   /** 持ち込みを買い取るか */
+  /** 状態を織り込んだ実際の価値。状態を見ないと傷あり品ばかり買う逆選択が起きる */
+  const worth = (st, t, cond) => t.base * E.condMult(st, { cond });
+
   function buyDecision(st, c) {
     const t = st.byId.get(c.titleId);
     if (E.freeSlots(st) <= TUNING.slotBuffer) return false;
     if (st.cash - c.ask < st.cfg.rent + TUNING.reserve) return false;
     const owned = E.ownedIds(st).has(t.id);
     // 未所持なら図鑑のために相場近くまで出す。所持済みは転売できる値段でだけ買う
-    return c.ask <= t.base * (owned ? 0.55 : 0.85);
+    return c.ask <= worth(st, t, c.cond) * (owned ? 0.55 : 0.85);
   }
 
   /**
@@ -65,7 +68,10 @@
     const willing = [];
     // 同一タイトルの所持数を数え、1本目だけを守る候補にする
     const seen = new Map();
-    const order = st.inv.slice().sort((a, b) => (b.junk ? 0 : 1) - (a.junk ? 0 : 1));
+    // ジャンクを後ろへ。同じタイトルなら状態の良い順に見て、
+    // 手元に残す1本が一番良い状態になるようにする
+    const order = st.inv.slice().sort((a, b) =>
+      (b.junk ? 0 : 1) - (a.junk ? 0 : 1) || (b.cond || 0) - (a.cond || 0));
     for (const item of order) {
       if (item.junk) { item.protect = false; continue; }
       const t = E.titleOf(st, item);
@@ -174,7 +180,8 @@
     // 3. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
     //    まとめ図鑑を埋める本数はここでしか稼げないため、中盤以降はまとめ買いより優先する
     const single = o.single ? st.byId.get(o.single.titleId) : null;
-    const singleBid = single ? Math.round(single.base * TUNING.singleBidRatio) : 0;
+    const singleBid = single
+      ? Math.round(worth(st, single, o.single.cond) * TUNING.singleBidRatio) : 0;
     const singleWanted = single && !owned.has(single.id)
       && (single.tier === 'rare' || single.tier === 'ultra')
       && slots > 0
@@ -236,6 +243,9 @@
       const a = chooseAction(st);
       const r = E.doAction(st, a.key, a.params);
       if (!r.ok) E.doAction(st, 'rest', {});   // 失敗したら休むで確実にターンを消費
+      // 仕入れた直後にもう一度並べ直す。そうしないと、いま買った美品が
+      // 次のターンまで守られず、手元の傷あり品のほうに非売品札が付いたままになる
+      if (!st.ended) arrangeDisplay(st);
     }
   }
 

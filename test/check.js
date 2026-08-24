@@ -580,6 +580,88 @@ check('種明かしは次の周で繰り返さない', () => {
   return '引き継ぎ済みとして持ち越す';
 });
 
+// ---------------- 4.5 ソフトの状態 ----------------
+section('ソフトの状態');
+check('全在庫に有効な状態が付く', () => {
+  const st = E.createGame({ seed: 4 });
+  const n = E.BALANCE.condition.grades.length;
+  for (const i of st.inv) {
+    if (i.junk) { assert(i.cond == null, 'ジャンクに状態が付いている'); continue; }
+    assert(Number.isInteger(i.cond) && i.cond >= 0 && i.cond < n, `cond=${i.cond}`);
+  }
+  const by = {};
+  for (const i of st.inv) if (!i.junk) by[E.condLabel(st, i)] = (by[E.condLabel(st, i)] || 0) + 1;
+  return Object.entries(by).map(([k, v]) => `${k}${v}`).join(' ');
+});
+check('まとめ買いの状態の期待値が1.0', () => {
+  // ここが1.0から外れると、状態を入れただけで経済が動いてしまう。
+  // わざと傾けるのは数値調整の仕事で、この機能の仕事ではない
+  const c = E.BALANCE.condition;
+  const e = c.mix.bulk.reduce((sum, p, i) => sum + p * c.grades[i].mult, 0);
+  assert(Math.abs(e - 1) < 0.02, `期待値 ${e.toFixed(3)}`);
+  for (const k in c.mix) {
+    const sum = c.mix[k].reduce((a, b) => a + b, 0);
+    assert(Math.abs(sum - 1) < 1e-6, `${k} の確率の合計が ${sum}`);
+    assert(c.mix[k].length === c.grades.length, `${k} の要素数が段階数と違う`);
+  }
+  return `期待値 ${e.toFixed(3)}`;
+});
+check('状態が売値に効く', () => {
+  const st = E.createGame({ seed: 4 });
+  const t = st.catalog.find(x => x.tier === 'mid');
+  const mk = cond => {
+    const item = { uid: -1, titleId: t.id, junk: false, cond, markdown: false, acquiredWeek: 1 };
+    return E.priceOf(st, item);
+  };
+  const g = E.BALANCE.condition.grades;
+  assert(mk(0) < mk(1) && mk(1) < mk(2), `${mk(0)} / ${mk(1)} / ${mk(2)}`);
+  assert(Math.abs(mk(2) / t.base - g[2].mult) < 0.01, '美品の倍率が効いていない');
+  return `${mk(0).toLocaleString()} / ${mk(1).toLocaleString()} / ${mk(2).toLocaleString()}`;
+});
+check('図鑑は状態を問わない', () => {
+  // 登録も所持も「どの状態でも1本は1本」。真エンドの条件を変えないための一線
+  const st = E.createGame({ seed: 4 });
+  const t = st.catalog.find(x => !E.ownedIds(st).has(x.id));
+  st.inv.push({ uid: -2, titleId: t.id, junk: false, cond: 0, markdown: false, acquiredWeek: 1 });
+  assert(E.ownedIds(st).has(t.id), '傷あり品が所持に数えられていない');
+  st.registered.add(t.id);
+  assert(st.registered.has(t.id), '登録されていない');
+});
+check('自動プレイが状態の良い1本を残す', () => {
+  // 終局後ではなく営業中で見る。最終ターンの仕入れは並べ直す前にゲームが終わるため
+  const st = E.createGame({ seed: 21 });
+  while (!st.ended && st.week < 40) P.playTurn(st);
+  const byTitle = new Map();
+  for (const i of st.inv) {
+    if (i.junk) continue;
+    if (!byTitle.has(i.titleId)) byTitle.set(i.titleId, []);
+    byTitle.get(i.titleId).push(i);
+  }
+  let bad = 0, checked = 0;
+  for (const [, list] of byTitle) {
+    if (list.length < 2) continue;
+    const kept = list.filter(i => i.protect);
+    if (!kept.length) continue;
+    checked++;
+    const best = Math.max(...list.map(i => i.cond));
+    if (kept.some(i => i.cond < best)) bad++;
+  }
+  assert(checked > 0, '重複が無く判定できない');
+  assert(bad === 0, `${bad}/${checked} 件で状態の悪いほうを残している`);
+  return `40週時点の重複${checked}件を確認`;
+});
+check('自動プレイが状態を見て値踏みする', () => {
+  // 固定の閾値だと、安い傷あり品ばかり買って美品を一度も買わない逆選択が起きる
+  const st = E.createGame({ seed: 4 });
+  st.cash = 5000000;
+  const t = st.catalog.find(x => x.tier === 'mid');
+  const ask = Math.round(t.base * 1.2);
+  const mint = P.buyDecision(st, { titleId: t.id, ask, cond: 2 });
+  const worn = P.buyDecision(st, { titleId: t.id, ask, cond: 0 });
+  assert(mint && !worn, `美品${mint} / 傷あり${worn}（同じ提示額なら美品だけ買うべき）`);
+  return `提示${ask.toLocaleString()}円: 美品○ / 傷あり×`;
+});
+
 // ---------------- 5. 周回引き継ぎ ----------------
 section('周回引き継ぎ');
 check('図鑑と交渉術が次の周に残る', () => {

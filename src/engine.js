@@ -187,6 +187,38 @@
      */
     carryOver: { registered: true, skills: true, reveals: true, cash: false, cashRatio: 0.2, slots: false },
 
+    /**
+     * ソフトの状態。最小構成——価格倍率だけを持ち、図鑑には干渉しない。
+     *  - 登録も所持も「どの状態でも1本は1本」。真エンドの条件は変わらない
+     *  - 修理・クリーニングの行動は作らない（手番がボトルネックなので増やさない）
+     *  - 在庫で劣化もしない。買ったときの状態のまま
+     * 仕入れ経路ごとに出やすさが違うので、それが仕入れの性格づけになる。
+     */
+    condition: {
+      enabled: true,
+      grades: [
+        { id: 'worn',  label: '傷あり', mult: 0.80 },
+        { id: 'plain', label: '並',     mult: 1.00 },
+        { id: 'mint',  label: '美品',   mult: 1.50 },
+      ],
+      /**
+       * まとめ買いは期待値1.0になるよう配合してある（0.8×0.45 + 1.0×0.37 + 1.5×0.18 = 1.00）。
+       * 状態を入れたこと自体で経済が動かないようにするため。
+       * 数値調整でわざと傾ける場合は、ここが独立したレバーになる。
+       */
+      mix: {
+        bulk:   [0.45, 0.37, 0.18],   // まとめ買いロット。半分近くが傷あり、たまに当たりが混じる
+        junk:   [0.80, 0.19, 0.01],   // 処分品引取。ほぼジャンクカゴ
+        seller: [0.30, 0.50, 0.20],   // 客の持ち込み。提示額も状態に連動する
+        single: [0.10, 0.45, 0.45],   // 単品オークション。写真を見て入札するので状態はいい
+        event:  [0.05, 0.45, 0.50],   // 常連からの譲渡。持ち主が大事にしていたもの
+        start:  [0.35, 0.50, 0.15],   // 開店在庫。叔父が遺した売れ残り
+      },
+      // 取り寄せは割増を払って業者に探させるので、状態は「並」で固定。
+      // ここを抽選にすると、料金が状態に連動しないぶん取り寄せだけが得になる
+      orderCond: 1,
+    },
+
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
     junkValue: 50,          // ガラクタの処分単価
@@ -245,7 +277,30 @@
     return rWeighted(st.rng, pairs);
   }
 
-  function makeItem(st, title) {
+  /** 仕入れ経路ごとの状態抽選。cond は grades のインデックス */
+  function rollCond(st, source) {
+    const c = st.cfg.condition;
+    if (!c || !c.enabled) return 1;
+    const mix = (c.mix && c.mix[source]) || c.mix.bulk;
+    let r = st.rng();
+    for (let i = 0; i < mix.length; i++) { r -= mix[i]; if (r <= 0) return i; }
+    return mix.length - 1;
+  }
+  /** その在庫の状態倍率。ジャンクと未設定は等倍 */
+  function condMult(st, item) {
+    const c = st.cfg.condition;
+    if (!c || !c.enabled || !item || item.junk || item.cond == null) return 1;
+    const g = c.grades[item.cond];
+    return g ? g.mult : 1;
+  }
+  const condLabel = (st, item) => {
+    const c = st.cfg.condition;
+    if (!c || !c.enabled || !item || item.junk || item.cond == null) return '';
+    const g = c.grades[item.cond];
+    return g ? g.label : '';
+  };
+
+  function makeItem(st, title, source) {
     return {
       uid: st.uidSeq++,
       titleId: title ? title.id : null,
@@ -253,6 +308,7 @@
       display: false,
       markdown: false,
       protect: false,      // 非売品（コレクション用に確保）。客も自動売上も手を出さない
+      cond: title ? rollCond(st, source || 'bulk') : null,
       acquiredWeek: st.week,
     };
   }
@@ -268,7 +324,8 @@
   function priceOf(st, item) {
     const t = titleOf(st, item);
     if (!t) return st.cfg.junkValue;
-    return Math.round(t.base * (item.markdown ? 1 - st.cfg.markdownRate : 1));
+    return Math.round(t.base * condMult(st, item)
+      * (item.markdown ? 1 - st.cfg.markdownRate : 1));
   }
 
   function demandOf(st, item) {
@@ -324,7 +381,8 @@
   function addItem(st, title, opts) {
     if (freeSlots(st) <= 0) return null;
     st.totals.acquired++;
-    const item = makeItem(st, title);
+    const item = makeItem(st, title, opts && opts.source);
+    if (opts && opts.cond != null) item.cond = opts.cond;
     st.inv.push(item);
     if (title) st.registered.add(title.id);            // 図鑑登録は一度でも入手すれば永続
     if (opts && opts.display && freeDisplay(st) > 0) item.display = true;
@@ -374,7 +432,9 @@
       const item = st.inv.find(i => i.uid === uid);
       if (!item) continue;
       const t = titleOf(st, item);
-      const price = t ? Math.round(t.base * st.cfg.wholesaleRatio) : st.cfg.junkValue;
+      const price = t
+        ? Math.round(t.base * condMult(st, item) * st.cfg.wholesaleRatio)
+        : st.cfg.junkValue;
       removeItem(st, uid);
       total += price; n++;
     }
@@ -516,7 +576,7 @@
       let t = e.type === 'gift' ? byTitle(e.title) : null;
       if (!t || ownedIds(st).has(t.id)) t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
       if (t && freeSlots(st) > 0) {
-        addItem(st, t);
+        addItem(st, t, { source: 'event' });
         res.gained = t.id;
         log(st, 'event', `${who.name}: ${e.text}（「${t.name}」を手に入れた）`, 0);
       } else {
@@ -535,7 +595,7 @@
       st.cash -= price;
       st.totals.purchases += price;
       st.totals.boughtCount++;
-      addItem(st, t);
+      addItem(st, t, { source: 'event' });
       res.gained = t.id;
       res.spent = price;
       log(st, 'event', `${who.name}: ${e.text}（「${t.name}」を${price.toLocaleString()}円で買い取った）`, -price);
@@ -577,10 +637,13 @@
       const t = pickTitle(st, tier, { byDemand: true });
       if (!t) return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
       const r = st.cfg.sellerAskRange;
-      let ask = t.buy * (r[0] + st.rng() * (r[1] - r[0])) * (1 + skill(st, 'buy'));
+      const cond = rollCond(st, 'seller');
+      const cm = (st.cfg.condition && st.cfg.condition.enabled)
+        ? st.cfg.condition.grades[cond].mult : 1;
+      let ask = t.buy * cm * (r[0] + st.rng() * (r[1] - r[0])) * (1 + skill(st, 'buy'));
       if (st.buyBonus) ask *= (1 - Math.min(0.4, st.buyBonus));   // 常連の値引き
       ask = Math.max(100, Math.round(ask / 100) * 100);
-      return { type: 'seller', titleId: t.id, ask };
+      return { type: 'seller', titleId: t.id, ask, cond };
     }
     return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
   }
@@ -638,7 +701,7 @@
         st.cash -= c.ask;
         st.totals.purchases += c.ask;
         st.totals.boughtCount++;
-        addItem(st, t, { display: true });
+        addItem(st, t, { display: true, cond: c.cond });
         rep(st, st.cfg.reputation.gain.buyFromCustomer);
         result.accepted = true;
         log(st, 'buy', `「${t.name}」を買い取った`, -c.ask);
@@ -745,10 +808,13 @@
     const target = pickTitle(st, tier,
       { ownedPenalty: cfg.single.ownedPenalty * (1 - skill(st, 'unownedBias')) });
     const ar = cfg.single.askRatio, rr = cfg.single.rivalRatio;
+    const singleCond = rollCond(st, 'single');
+    const singleMult = (cfg.condition && cfg.condition.enabled)
+      ? cfg.condition.grades[singleCond].mult : 1;
     const singleOffer = target ? {
-      titleId: target.id,
-      current: Math.round(target.base * (ar[0] + st.rng() * (ar[1] - ar[0])) / 1000) * 1000,
-      rival: Math.round(target.base * (rr[0] + st.rng() * (rr[1] - rr[0]))),
+      titleId: target.id, cond: singleCond,
+      current: Math.round(target.base * singleMult * (ar[0] + st.rng() * (ar[1] - ar[0])) / 1000) * 1000,
+      rival: Math.round(target.base * singleMult * (rr[0] + st.rng() * (rr[1] - rr[0]))),
     } : null;
 
     return {
@@ -789,10 +855,11 @@
         .sort((a, b) => b.base - a.base);
       let added = 0, overflow = 0, overflowCash = 0;
       for (const t of incoming) {
-        if (addItem(st, t)) { added++; res.gained.push(t.id); }
+        if (addItem(st, t, { source: key })) { added++; res.gained.push(t.id); }
         else {
           // 棚に入れずそのまま業者行きなので図鑑には載らない
           overflow++; st.totals.overflow++;
+          // 棚に入らず直行するので状態は引かない（並品として流す）
           overflowCash += Math.round(t.base * st.cfg.wholesaleRatio);
         }
       }
@@ -824,7 +891,7 @@
         res.spent = paid;
         res.won = true;
         res.gained.push(t.id);
-        addItem(st, t, { display: t.tier !== 'ultra' });
+        addItem(st, t, { display: t.tier !== 'ultra', cond: offer.cond });
         log(st, 'single', `落札: 「${t.name}」`, -paid);
       } else {
         res.won = false;
@@ -857,7 +924,7 @@
         st.totals.purchases += cost;
         st.totals.orderCount++;
         spent += cost;
-        addItem(st, t);
+        addItem(st, t, { cond: st.cfg.condition.orderCond });
         res.gained.push(t.id);
         done.push(t.name);
       }
@@ -914,7 +981,7 @@
     if (!t) return;
     st.ultraDue--;
     st.ultraEvents++;
-    addItem(st, t);
+    addItem(st, t, { source: 'event' });
     log(st, 'event', `常連客からの譲渡: 「${t.name}」を手に入れた`, 0);
   }
 
@@ -975,7 +1042,9 @@
       for (const item of order) {
         if (st.cash >= rent) break;
         const t = titleOf(st, item);
-        const price = t ? Math.round(t.base * st.cfg.forcedSaleRatio) : st.cfg.junkValue;
+        const price = t
+          ? Math.round(t.base * condMult(st, item) * st.cfg.forcedSaleRatio)
+          : st.cfg.junkValue;
         removeItem(st, item.uid, 'forced');
         st.cash += price;
         forced += price; forcedCount++;
@@ -1104,7 +1173,7 @@
     for (let i = 0; i < cfg.startInventory; i++) {
       const tier = pickTier(st.rng, { common: 0.8, mid: 0.2 });
       const t = pickTitle(st, tier, { byDemand: true });
-      addItem(st, t, { display: true });
+      addItem(st, t, { display: true, source: 'start' });
     }
     // 前周からの引き継ぎ（opts.previous は carryFrom() の戻り値）
     const prev = opts.previous;
@@ -1147,6 +1216,7 @@
       reveals: Object.keys(st.reveals || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS,
+    condLabel, condMult,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
       (e && e.skill && st.skills[e.skill] && e.skillKnown) ? e.skillKnown : null,

@@ -42,6 +42,16 @@
     return e;
   };
   const tierCls = t => 'tier-' + t;
+  /** 状態の見せ方。美品は良い色、傷ありは沈める */
+  const condCls = item => (item && item.cond != null)
+    ? (item.cond === 2 ? 'ok' : item.cond === 0 ? 'warn' : 'sub') : 'sub';
+  /** 「美品（相場の125%）」のような注記 */
+  function condNote(st2, cond) {
+    const c = st2.cfg.condition;
+    if (!c || !c.enabled || cond == null || !c.grades[cond]) return '';
+    const g = c.grades[cond];
+    return `${g.label}（相場の${Math.round(g.mult * 100)}%）`;
+  }
 
   // ---------------- 状態バー ----------------
   function renderStat() {
@@ -209,11 +219,15 @@
         p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
         p.appendChild(el('span', null, ` を ${yen(c.ask)} で買い取ってほしい`));
         card.appendChild(p);
-        card.appendChild(el('div', 'sub',
+        const note = condNote(st, c.cond);
+        const d = el('div', 'sub');
+        d.appendChild(el('span', null,
           `${t.year}年 / ${t.maker} / ${t.tierLabel}`
           + (t.rating != null ? ` / 評価${t.rating.toFixed(1)}` : '')
-          + `｜基準相場 ${yen(t.base)}｜買取目安 ${yen(t.buy)}｜`
-          + (owned ? '所持済み' : '未所持')));
+          + `｜基準相場 ${yen(t.base)}｜`));
+        if (note) d.appendChild(el('span', condCls({ cond: c.cond }), note + '｜'));
+        d.appendChild(el('span', null, owned ? '所持済み' : '未所持'));
+        card.appendChild(d);
         showDetail(t.id);
         const row = el('div', 'row');
         const canBuy = st.cash >= c.ask && E.freeSlots(st) > 0;
@@ -282,9 +296,13 @@
       p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
       p.appendChild(el('span', null, ` — 現在価格 ${yen(o.single.current)}`));
       card.appendChild(p);
-      card.appendChild(el('div', 'sub',
-        `${t.hardware} / ${t.year}年 / ${t.maker} / ${t.tierLabel}｜基準相場 ${yen(t.base)}｜`
-        + (owned ? '所持済み' : '未所持')));
+      const sd = el('div', 'sub');
+      sd.appendChild(el('span', null,
+        `${t.hardware} / ${t.year}年 / ${t.maker} / ${t.tierLabel}｜基準相場 ${yen(t.base)}｜`));
+      const sn = condNote(st, o.single.cond);
+      if (sn) sd.appendChild(el('span', condCls({ cond: o.single.cond }), sn + '｜'));
+      sd.appendChild(el('span', null, owned ? '所持済み' : '未所持'));
+      card.appendChild(sd);
       const row = el('div', 'row');
       const input = el('input');
       input.type = 'number';
@@ -386,10 +404,10 @@
     const tb = $('inv');
     tb.innerHTML = '';
     const head = tb.insertRow();
-    ['', 'タイトル', 'ハード', '希少', '相場', '陳列', '非売品', '値下'].forEach((h, i) => {
+    ['', 'タイトル', 'ハード', '希少', '状態', '相場', '陳列', '非売品', '値下'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
-      if (i === 4) th.className = 'num';
+      if (i === 5) th.className = 'num';
       head.appendChild(th);
     });
 
@@ -415,6 +433,7 @@
         c.className = 'sub';
         r.insertCell().textContent = '—';
         r.insertCell().textContent = '—';
+        r.insertCell().textContent = '—';
         const pc = r.insertCell(); pc.textContent = yen(st.cfg.junkValue); pc.className = 'num';
         r.insertCell(); r.insertCell(); r.insertCell();
         continue;
@@ -427,6 +446,9 @@
       r.onclick = e => { if (e.target.tagName !== 'INPUT') showDetail(t.id); };
       r.insertCell().textContent = t.hardware;
       r.insertCell().textContent = t.tierLabel;
+      const cc = r.insertCell();
+      cc.textContent = E.condLabel(st, item);
+      cc.className = condCls(item);
       const pc = r.insertCell();
       pc.textContent = yen(E.priceOf(st, item));
       pc.className = 'num';
