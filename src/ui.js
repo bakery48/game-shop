@@ -75,6 +75,10 @@
     add('ターン', E.HALF_LABEL[s.half]);
     add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
     add('家賃', yen(st.cfg.rent) + (rentSoon ? ' 今週末' : ''), rentSoon ? 'warn' : null);
+    if (s.debt > 0) {
+      const c = st.cfg.credit;
+      add('残債', yen(s.debt) + `（週${Math.round(c.interest * 100)}%）`, 'warn');
+    }
     const learned = Object.keys(st.skills || {});
     if (learned.length) {
       add('交渉術', learned.map(k => st.cfg.skills[k].name).join('・'), 'ok');
@@ -389,6 +393,17 @@
             render();
           }, st.cash < u.cost, u.desc);
       }
+    }
+
+    const cc = st.cfg.credit;
+    if (cc && cc.enabled) {
+      const room = Math.max(0, cc.limit - st.debt);
+      const step = Math.min(room, st.cfg.rent * 2);
+      mk('業者に立て替えてもらう',
+        room ? `あと ${yen(room)} まで頼めます` : '上限まで借りています',
+        `${yen(step)} 借りる`, () => { E.borrow(st, step); render(); }, !room,
+        '手番は使いません。週末に手数料が乗り、余裕ができたぶんから自動で返します'
+        + '｜在庫を叩き売ると棚が痩せて売上が戻らなくなるので、先にこちらを頼るほうが立て直せます');
     }
 
     mk('休む', '何もしません', '休む', () => { E.doAction(st, 'rest', {}); render(); });

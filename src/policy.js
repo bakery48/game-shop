@@ -229,9 +229,41 @@
     return { key: 'rest', params: {} };
   }
 
+  /**
+   * 在庫を叩き売る前に立て替えを頼む。
+   * 棚を減らすと値札売りが減り、収入が落ちてさらに叩き売る螺旋に入る。
+   * 立替は在庫を減らさないので、ここで先に通しておく
+   */
+  function maybeBorrow(st) {
+    const c = st.cfg.credit;
+    if (!c || !c.enabled) return 0;
+    const cfg = st.cfg;
+    const rentFloor = st.half === 1
+      ? cfg.rent + TUNING.reserve : Math.round(cfg.rent * TUNING.weekdayFloor);
+    if (st.cash >= rentFloor) return 0;
+    return E.borrow(st, rentFloor - st.cash);
+  }
+
+  /**
+   * 家賃に消える立替では螺旋は切れない。収入は陳列品の「単価」で決まるので、
+   * ロットを買う金として借りられて初めて意味がある。
+   * offers は行動フェイズに入ってから立つので、ここは chooseAction の直前で呼ぶ
+   */
+  function borrowForStock(st) {
+    const c = st.cfg.credit;
+    if (!c || !c.enabled || !c.stockUntilWeek || st.week > c.stockUntilWeek) return 0;
+    const o = st.offers;
+    if (!o || !o.bulk || E.freeSlots(st) < TUNING.bulkMinSlots) return 0;
+    const rentFloor = st.half === 1
+      ? st.cfg.rent + TUNING.reserve : Math.round(st.cfg.rent * TUNING.weekdayFloor);
+    const need = o.bulk.cost + rentFloor - st.cash;
+    return need > 0 ? E.borrow(st, need) : 0;
+  }
+
   /** 1ターン進める */
   function playTurn(st) {
     arrangeDisplay(st);
+    maybeBorrow(st);
     while (st.phase === 'shop' && st.current) {
       const c = st.current;
       if (c.type === 'buyer') E.answer(st, sellDecision(st, c));
@@ -240,6 +272,7 @@
       else E.answer(st, false);
     }
     if (st.phase === 'action') {
+      borrowForStock(st);
       const a = chooseAction(st);
       const r = E.doAction(st, a.key, a.params);
       if (!r.ok) E.doAction(st, 'rest', {});   // 失敗したら休むで確実にターンを消費
@@ -255,5 +288,5 @@
     return st;
   }
 
-  return { TUNING, playTurn, playAll, arrangeDisplay, chooseAction, sellDecision, buyDecision, eventDecision, pickDump };
+  return { TUNING, playTurn, playAll, arrangeDisplay, chooseAction, sellDecision, buyDecision, eventDecision, pickDump, maybeBorrow, borrowForStock };
 });

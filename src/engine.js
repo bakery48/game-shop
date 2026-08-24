@@ -25,7 +25,7 @@
   const BALANCE = {
     totalWeeks: 50,        // αテスト版は 10 で作る（UIの「範囲」で切り替え）
     rent: 30000,
-    startCash: 175000,
+    startCash: 100000,
     startInventory: 30,
     shelfSlots: 50,          // 保管も含めた総枠
     displaySlots: 20,        // うち店頭陳列できる数
@@ -236,6 +236,20 @@
     wholesaleRatio: 0.40,   // 業者への卸値（整理）
     forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
     junkValue: 50,          // ガラクタの処分単価
+
+    /**
+     * 業者の立替（家賃の穴埋め）。
+     * これが無いと、金が足りない → 在庫を叩き売る → 棚が減る → 値札売りが減る、の
+     * 螺旋しか無くなり、「カツカツだが回る」状態が存在できない。
+     * 在庫を減らさずに現金を都合する道を作って、螺旋の底に床を張る。
+     */
+    credit: {
+      enabled: true,
+      limit: 250000,      // 立替の上限（家賃の8週分）
+      interest: 0.06,     // 週あたりの手数料。残債に対して掛かる
+      reserve: 20000,     // 返済後に手元へ残す額。全部返すと翌週すぐまた借りる
+      stockUntilWeek: 50, // この週までは「ロットを買う金」としても借りられる（0で家賃の穴埋めのみ）
+    },
   };
 
   const HALF_LABEL = ['前半（平日）', '後半（週末）'];
@@ -391,7 +405,7 @@
   function stats(st) {
     const owned = ownedIds(st);
     return {
-      week: st.week, half: st.half, cash: st.cash,
+      week: st.week, half: st.half, cash: st.cash, debt: st.debt,
       inventory: st.inv.length, slots: st.cfg.shelfSlots, displaySlots: st.cfg.displaySlots,
       reputation: Math.round(st.reputation * 10) / 10,
       junk: st.inv.filter(i => i.junk).length,
@@ -1062,19 +1076,77 @@
     rep(st, d);
   }
 
+  /** 立替を受ける。借りられた額を返す */
+  function borrow(st, want) {
+    const c = st.cfg.credit;
+    if (!c || !c.enabled) return 0;
+    const room = Math.max(0, c.limit - st.debt);
+    const got = Math.min(room, Math.max(0, Math.ceil(want)));
+    if (!got) return 0;
+    st.cash += got;
+    st.debt += got;
+    st.totals.borrowed += got;
+    log(st, 'credit', `業者に${got.toLocaleString()}円を立て替えてもらった（残債${st.debt.toLocaleString()}円）`, got);
+    return got;
+  }
+
+  /** 手元に reserve を残して、返せるだけ返す */
+  function repay(st) {
+    const c = st.cfg.credit;
+    if (!c || !c.enabled || st.debt <= 0) return 0;
+    const spare = st.cash - c.reserve;
+    if (spare <= 0) return 0;
+    const paid = Math.min(spare, st.debt);
+    st.cash -= paid;
+    st.debt -= paid;
+    st.totals.repaid += paid;
+    log(st, 'credit', `立替を${paid.toLocaleString()}円返した（残債${st.debt.toLocaleString()}円）`, -paid);
+    return paid;
+  }
+
+  /** 手放す順番。ガラクタ→重複→安いものの順 */
+  function dumpOrder(st) {
+    const owned = new Map();
+    for (const i of st.inv) if (!i.junk) owned.set(i.titleId, (owned.get(i.titleId) || 0) + 1);
+    return st.inv.slice().sort((a, b) => {
+      const rank = it => it.junk ? 0 : (owned.get(it.titleId) > 1 ? 1 : 2);
+      return rank(a) - rank(b) || priceOf(st, a) - priceOf(st, b);
+    });
+  }
+
+  /**
+   * 最後の精算。現金で足りなければ在庫を叩いて返す。
+   * ここが無いと、最終週に上限まで借りて買うのが常に得になってしまう
+   */
+  function settleDebt(st) {
+    if (st.debt <= 0) return;
+    const paid = Math.min(st.cash, st.debt);
+    st.cash -= paid; st.debt -= paid;
+    let sold = 0;
+    for (const item of dumpOrder(st)) {
+      if (st.debt <= 0) break;
+      const t = titleOf(st, item);
+      const price = t
+        ? Math.round(t.base * condMult(st, item) * st.cfg.forcedSaleRatio)
+        : st.cfg.junkValue;
+      removeItem(st, item.uid, 'forced');
+      st.debt = Math.max(0, st.debt - price);
+      sold++;
+    }
+    if (sold) log(st, 'credit', `残債の精算で在庫${sold}点を手放した`, 0);
+    else log(st, 'credit', `残債を精算した（${paid.toLocaleString()}円）`, -paid);
+  }
+
   function payRent(st) {
     appraiseShelf(st);
     const rent = st.cfg.rent;
     let forced = 0, forcedCount = 0;
 
+    // 在庫を叩き売る前に、まず立て替えてもらう。棚を減らさずに済む道を先に通す
+    if (st.cash < rent) borrow(st, rent - st.cash);
+
     if (st.cash < rent) {
-      // 在庫の強制売却。ガラクタ→重複→安いものの順に手放す
-      const owned = new Map();
-      for (const i of st.inv) if (!i.junk) owned.set(i.titleId, (owned.get(i.titleId) || 0) + 1);
-      const order = st.inv.slice().sort((a, b) => {
-        const rank = it => it.junk ? 0 : (owned.get(it.titleId) > 1 ? 1 : 2);
-        return rank(a) - rank(b) || priceOf(st, a) - priceOf(st, b);
-      });
+      const order = dumpOrder(st);
       for (const item of order) {
         if (st.cash >= rent) break;
         const t = titleOf(st, item);
@@ -1103,6 +1175,18 @@
 
     st.cash -= rent;
     st.totals.rent += rent;
+
+    // 手数料は残債に乗る。返せるときに返しておかないと膨らむ
+    const cc = st.cfg.credit;
+    if (cc && cc.enabled && st.debt > 0) {
+      const fee = Math.round(st.debt * cc.interest);
+      if (fee > 0) {
+        st.debt += fee;
+        st.totals.interest += fee;
+        log(st, 'credit', `立替の手数料${fee.toLocaleString()}円（残債${st.debt.toLocaleString()}円）`, 0);
+      }
+    }
+    repay(st);
     log(st, 'rent', `${st.week}週目の家賃を支払った`, -rent);
     snapshot.cash = st.cash;
     return snapshot;
@@ -1120,6 +1204,7 @@
     }
     st.ended = true;
     st.phase = 'ended';
+    if (forceEnding !== 'bad') settleDebt(st);
     const s = stats(st);
     if (forceEnding === 'bad') st.ending = 'bad';
     else if (s.owned >= s.total) st.ending = 'true';
@@ -1199,7 +1284,9 @@
       ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
       upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {}, reveals: {},
       reputation: 0,
-      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0 },
+      debt: 0,
+      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
+                borrowed: 0, repaid: 0, interest: 0 },
     };
 
     st.catalog = Catalog.build(cfg.tiers, cfg.catalogSize, cfg.catalogSeed);
@@ -1251,7 +1338,7 @@
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
       reveals: Object.keys(st.reveals || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay,
     condLabel, condMult,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>

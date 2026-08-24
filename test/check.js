@@ -618,6 +618,62 @@ check('処分品引取は少量・安価・レアなし', () => {
   assert(E.BALANCE.condition.mix.junk[mint] === 0, '処分品引取から美品が出ている');
   return `引取${j.items[0]}〜${j.items[1]}点 / まとめ買い${b.items[0]}〜${b.items[1]}点`;
 });
+check('立替は上限までしか借りられない', () => {
+  const st = E.createGame({ seed: 7 });
+  const c = st.cfg.credit;
+  const before = st.cash;
+  const got = E.borrow(st, c.limit * 3);
+  assert(got === c.limit, `${got}円 借りられた（上限${c.limit}）`);
+  assert(st.cash === before + c.limit, '現金が増えていない');
+  assert(st.debt === c.limit, `残債が ${st.debt}`);
+  assert(E.borrow(st, 10000) === 0, '上限を超えて借りられる');
+  return `上限${c.limit.toLocaleString()}円`;
+});
+check('立替は在庫を減らさずに家賃をしのげる', () => {
+  // 叩き売る前に立替を通すのが要点。棚が減ると売上が減って戻れなくなる
+  const st = E.createGame({ seed: 8 });
+  st.cash = 0;
+  st.half = 1;
+  E.endTurn(st);
+  assert(!st.ended, '閉店してしまった');
+  assert(st.debt > 0, '立替が発生していない');
+  // 店頭で売れるのは通常の売上なので、見るのは強制売却だけ
+  const forced = st.log.filter(l => l.kind === 'forced');
+  assert(!forced.length, `強制売却が起きた（${forced.map(l => l.text).join('／')}）`);
+  return `叩き売りなしで残債${st.debt.toLocaleString()}円`;
+});
+check('残債には手数料が乗り、余裕から返される', () => {
+  const st = E.createGame({ seed: 9 });
+  E.borrow(st, 100000);
+  const c = st.cfg.credit;
+  st.cash = c.reserve;              // 返す余裕が無い週
+  st.half = 1;
+  const before = st.debt;
+  E.endTurn(st);
+  assert(st.debt > before, `手数料が乗っていない（${before} → ${st.debt}）`);
+  // 余裕がある週は返る
+  st.cash = 500000;
+  st.half = 1;
+  E.endTurn(st);
+  assert(st.debt === 0, `返済されていない（残債${st.debt}）`);
+  return `手数料 週${Math.round(c.interest * 100)}%`;
+});
+check('最後まで借りたままなら在庫で精算される', () => {
+  // ここが無いと、最終週に上限まで借りて買うのが常に得になる
+  const st = E.createGame({ seed: 10 });
+  E.borrow(st, st.cfg.credit.limit);
+  st.cash = st.cfg.rent + 10000;      // 家賃は払えるが、残債には全く足りない
+  const inv = st.inv.length;
+  st.week = st.cfg.totalWeeks; st.half = 1;
+  E.endTurn(st);
+  assert(st.ended, '終わっていない');
+  assert(st.cash >= 0, `残高が負（${st.cash}）`);
+  assert(st.inv.length < inv, '在庫が減っていない');
+  // 返しきれなければ在庫が尽きるまで持っていかれる。集めた物が消えるのが罰
+  assert(st.debt === 0 || !st.inv.length,
+    `在庫${st.inv.length}点を残したまま残債${st.debt}が残っている`);
+  return `在庫${inv} → ${st.inv.length}点 / 残債${st.debt.toLocaleString()}円`;
+});
 check('処分品引取だけが評判を上げる', () => {
   // 引取は劣化まとめ買いになりがち。「業者相手か、町の人相手か」を評判で分ける
   const g = E.BALANCE.reputation.gain;
