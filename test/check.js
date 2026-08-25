@@ -674,6 +674,47 @@ check('最後まで借りたままなら在庫で精算される', () => {
     `在庫${st.inv.length}点を残したまま残債${st.debt}が残っている`);
   return `在庫${inv} → ${st.inv.length}点 / 残債${st.debt.toLocaleString()}円`;
 });
+check('タダで渡す口ぶりのイベントが有料になっていない', () => {
+  // サトエさんの「持ってって」が相場30%の買取だった。口ぶりと処理は揃っている必要がある
+  const free = ['持ってって', 'タダ', 'ただであげ', 'あげるわ', 'あげるよ', 'いらない'];
+  const paid = [];
+  for (const r of E.REGULARS) {
+    for (const e of r.events || []) {
+      if (e.type !== 'offer') continue;
+      const hit = free.find(w => (e.text || '').includes(w));
+      if (hit) paid.push(`${r.name}${e.at}回目「${hit}」`);
+    }
+  }
+  assert(!paid.length, paid.join(' / '));
+  // 逆に、有料のイベントは値段の話をしていること
+  const noPrice = [];
+  for (const r of E.REGULARS) {
+    for (const e of r.events || []) {
+      if (e.type !== 'offer') continue;
+      if (!/安く|いくらでも|相場より|安い|値/.test(e.text || '')) noPrice.push(`${r.name}${e.at}回目`);
+    }
+  }
+  assert(!noPrice.length, `値段に触れていない買取イベント: ${noPrice.join('／')}`);
+  return `買取イベント${E.REGULARS.reduce((n, r) => n + (r.events || []).filter(e => e.type === 'offer').length, 0)}件`;
+});
+check('指名の贈り物は激レアに化けない', () => {
+  // 既に持っていると激レアに差し替わる実装だった。中堅1本のつもりが破格の当たりになる
+  const st = E.createGame({ seed: 11 });
+  const sat = E.REGULARS.find(r => r.id === 'satoe');
+  const ev = (sat.events || []).find(e => e.type === 'gift');
+  assert(ev, 'サトエさんの贈り物イベントが無い');
+  const t = st.catalog.find(x => x.name === ev.title);
+  assert(t, `「${ev.title}」がカタログに無い`);
+  assert(t.tier !== 'ultra', '前提が変わっている（贈り物が激レアになった）');
+  // 既に持っている状態で受け取っても、貰えるのは同じタイトル
+  const before = st.inv.filter(i => i.titleId === t.id).length;
+  E.resolveEvent(st, { event: ev, regular: sat }, true);
+  const after = st.inv.filter(i => i.titleId === t.id).length;
+  assert(after === before + 1, `「${t.name}」が増えていない（${before} → ${after}）`);
+  E.resolveEvent(st, { event: ev, regular: sat }, true);
+  assert(st.inv.filter(i => i.titleId === t.id).length === before + 2, '2本目で別の物に化けた');
+  return `「${t.name}」（${t.tier}）を2本とも同じ物として受け取った`;
+});
 check('処分品引取だけが評判を上げる', () => {
   // 引取は劣化まとめ買いになりがち。「業者相手か、町の人相手か」を評判で分ける
   const g = E.BALANCE.reputation.gain;

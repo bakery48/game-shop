@@ -621,8 +621,10 @@
       log(st, 'event', `${who.name}: ${e.text}`, 0);
 
     } else if (e.type === 'gift' || e.type === 'giftUltra') {
+      // 指名の贈り物は、既に持っていてもそのまま貰う（ダブりは売ればいい）。
+      // 激レアに化けさせると、中堅1本のつもりのイベントが破格の当たりになってしまう
       let t = e.type === 'gift' ? byTitle(e.title) : null;
-      if (!t || ownedIds(st).has(t.id)) t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
+      if (!t) t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
       if (t && freeSlots(st) > 0) {
         addItem(st, t, { source: 'event' });
         res.gained = t.id;
@@ -1338,7 +1340,7 @@
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
       reveals: Object.keys(st.reveals || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent,
     condLabel, condMult,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
