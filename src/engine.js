@@ -24,7 +24,7 @@
   // ============================================================
   const BALANCE = {
     totalWeeks: 50,        // αテスト版は 10 で作る（UIの「範囲」で切り替え）
-    rent: 30000,
+    rent: 32000,
     startCash: 100000,
     startInventory: 30,
     shelfSlots: 50,          // 保管も含めた総枠
@@ -89,7 +89,7 @@
     reputation: {
       enabled: true,
       start: 0, min: 0, max: 100,
-      customers: [1, 3],          // 評判 0 → 100 のときの来客数（店主一人で捌ける上限）
+      customers: [1, 3],          // 評判 0 → 100 のときの一般客の数（常連はこれと別枠）
       passive: [6, 18],           // 同じく店頭の値札売りの本数（安いぶん数は出る）
       customerNoise: 1,           // 来客数のターンごとのブレ
       gainFalloff: 0.5,           // 評判が高いほど上がりにくくなる強さ（0で逓減なし）
@@ -134,7 +134,7 @@
      * 来客枠は1回ずつ「一般客か常連か」を抽選する。常連が枠に上乗せされるわけではない。
      * 寂れた店に常連はついていないので、常連が当たる確率も評判に連動する。
      */
-    regulars: { enabled: true, visitChance: [0.15, 0.5], oncePerTurn: true },
+    regulars: { enabled: true, visitChance: [0.45, 0.95] },   // 1ターンに最大1人
 
     // 店番（＝売る／売らないの判断が発生する客）
     customers: {
@@ -579,18 +579,28 @@
     } else {
       n = rInt(st.rng, cfg.count[0], cfg.count[1]);
     }
+    // 一般客。常連とは別枠なので、常連が来た日でも普通の客の数は減らない
     const queue = [];
-    const rg = st.cfg.regulars;
-    // 常連が当たる確率も評判に連動する（寂れた店にはまだ常連がついていない）
-    const chance = Array.isArray(rg.visitChance) ? byRep(st, rg.visitChance) : rg.visitChance;
-    const seen = rg.oncePerTurn ? new Set() : null;   // 同じ常連が1ターンに二度来ないように
     for (let i = 0; i < n; i++) {
-      if (rg.enabled && REGULARS.length && st.rng() < chance) {
-        const c = makeRegularCustomer(st, seen);
-        if (c) { queue.push(c); continue; }
-      }
       const type = rWeighted(st.rng, Object.keys(cfg.weights).map(k => [k, cfg.weights[k]]));
       queue.push(makeCustomer(st, type));
+    }
+
+    // 常連は1ターンに最大1人。来るかどうかも評判に連動する
+    // （寂れた店にはまだ常連がついていない）
+    const rg = st.cfg.regulars;
+    if (rg.enabled && REGULARS.length) {
+      const chance = Array.isArray(rg.visitChance) ? byRep(st, rg.visitChance) : rg.visitChance;
+      if (st.rng() < chance) {
+        const c = makeRegularCustomer(st);
+        if (c) {
+          // 冷やかし専門の常連（漆原）だけは、来た日に普通の客を1人押しのける。
+          // 「来店枠を食うだけの邪魔者」が彼の役割なので、別枠にすると無害になってしまう
+          const r = REGULARS.find(x => x.id === c.regular.id);
+          if (r && r.alwaysBrowser && queue.length) queue.pop();
+          queue.splice(rInt(st.rng, 0, queue.length), 0, c);        // 並び順はばらす
+        }
+      }
     }
     return queue;
   }

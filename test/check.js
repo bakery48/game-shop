@@ -185,6 +185,43 @@ check('常連の年齢がつじつま合っている', () => {
   assert(by.ruri.born > hi, '瑠璃がスーエレ期を知っている世代になっている');
   return rg.regulars.map(r => `${r.name}${age(r)}`).join(' ');
 });
+check('常連は1ターンに最大1人で、一般客とは別枠', () => {
+  // 常連が来た日に普通の客が減ると、常連に会えること自体が損になる。
+  // 例外は漆原だけ（冷やかし専門なので枠を食うのが役割）
+  const st = E.createGame({ seed: 31 });
+  st.reputation = 100;              // 常連が必ず来る側に寄せる
+  let turns = 0, many = 0, withReg = [], without = [];
+  for (let i = 0; i < 400 && !st.ended; i++) {
+    if (st.phase === 'shop') {
+      const q = [st.current].concat(st.queue).filter(Boolean);
+      const regs = q.filter(c => c.regular);
+      if (regs.length > 1) many++;
+      const uru = regs.some(c => c.regular.id === 'urushibara');
+      if (!uru) (regs.length ? withReg : without).push(q.length);
+      turns++;
+      while (st.phase === 'shop' && st.current) E.answer(st, false);
+    }
+    if (st.phase === 'action') E.doAction(st, 'rest', {});
+    st.reputation = 100;            // 断り続けても常連が来る側に保つ
+    st.cash = 10000000;             // 家賃で潰れずに観測だけ続ける
+  }
+  assert(turns > 30, `${turns}ターンしか見ていない`);
+  assert(many === 0, `1ターンに常連が2人以上来た日が${many}回`);
+  const avg = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+  assert(withReg.length && without.length, '比較する日が足りない');
+  // 常連が来た日は、来なかった日より客がちょうど1人多いはず
+  const d = avg(withReg) - avg(without);
+  assert(d > 0.7 && d < 1.3, `常連が来た日の客数の差が ${d.toFixed(2)}人（1人のはず）`);
+  return `常連の日 ${avg(withReg).toFixed(2)}人 / 来ない日 ${avg(without).toFixed(2)}人`;
+});
+check('漆原だけは来店枠を食う', () => {
+  const st = E.createGame({ seed: 32 });
+  const uru = E.REGULARS.find(r => r.id === 'urushibara');
+  assert(uru && uru.alwaysBrowser, '漆原の alwaysBrowser が外れている');
+  const others = E.REGULARS.filter(r => r.alwaysBrowser && r.id !== 'urushibara');
+  assert(!others.length, `冷やかし専門が他にもいる: ${others.map(r => r.name).join('・')}`);
+  return '冷やかし専門は漆原だけ';
+});
 check('瑠璃だけが先代を知らない', () => {
   // 他の常連は全員「先代の店」として見ている。彼女だけが店主だけを見ている
   const r = rg.regulars.find(x => x.id === 'ruri');
