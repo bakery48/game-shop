@@ -208,7 +208,7 @@
      * 資金も在庫も持ち越さないので、店の経営そのものは毎周ゼロから始まる。
      * 登録済みのソフトは最初から取り寄せで狙えるため、完全クリアが現実的になる。
      */
-    carryOver: { registered: true, skills: true, reveals: true, cash: false, cashRatio: 0.2, slots: false },
+    carryOver: { registered: true, skills: true, reveals: true, memories: true, cash: false, cashRatio: 0.2, slots: false },
 
     /**
      * ソフトの状態。最小構成——価格倍率だけを持ち、図鑑には干渉しない。
@@ -517,11 +517,12 @@
   }
 
   /** 次に来る常連を選ぶ。イベントが近い人ほど来やすい */
-  function pickRegular(st, exclude) {
-    if (!REGULARS.length) return null;
-    const avail = exclude ? REGULARS.filter(r => !exclude.has(r.id)) : REGULARS;
+  function pickRegular(st, exclude, only) {
+    const from = only && only.length ? only : REGULARS;
+    if (!from.length) return null;
+    const avail = exclude ? from.filter(r => !exclude.has(r.id)) : from;
     if (!avail.length) return null;
-    const pool = avail.map(r => {
+    const weighted = avail.map(r => {
       const s = regState(st, r.id);
       const next = THRESHOLDS[s.fired];
       // まだイベントが残っている常連を優先する
@@ -530,12 +531,12 @@
       if (r.opensWith && !st[r.opensWith] && !s.fired) eager *= 6;
       return [r, (r.weight || 1) * eager];
     });
-    return rWeighted(st.rng, pool);
+    return rWeighted(st.rng, weighted);
   }
 
   /** 常連の来店を1件作る。しきい値に達していればイベントになる */
-  function makeRegularCustomer(st, exclude) {
-    const r = pickRegular(st, exclude);
+  function makeRegularCustomer(st, exclude, only) {
+    const r = pickRegular(st, exclude, only);
     if (!r) return null;
     if (exclude) exclude.add(r.id);
     const s = regState(st, r.id);
@@ -549,6 +550,11 @@
       const needsSlot = ev.type === 'gift' || ev.type === 'giftUltra' || ev.type === 'offer';
       if (!needsSlot || freeSlots(st) > 0) {
         s.fired++;
+        // 最後まで見届けたら「◯◯との記憶」が残る。次の周でこの人が来やすくなる
+        if (s.fired >= THRESHOLDS.length && !st.memories[r.id]) {
+          st.memories[r.id] = true;
+          log(st, 'memory', `${r.name}との記憶が残った。次の周でも会いやすくなる。`, 0);
+        }
         return { type: 'event', regular: who, event: ev };
       }
     }
@@ -591,8 +597,16 @@
     const rg = st.cfg.regulars;
     if (rg.enabled && REGULARS.length) {
       const chance = Array.isArray(rg.visitChance) ? byRep(st, rg.visitChance) : rg.visitChance;
-      if (st.rng() < chance) {
-        const c = makeRegularCustomer(st);
+      // 「誰も来ない」が出たときだけ、記憶のある常連だけでもう一度引き直す。
+      // 前の周で最後まで付き合った相手とは、また会いやすい
+      const remembered = REGULARS.filter(r => st.memories[r.id]);
+      let pool = null;                               // null なら全員から選ぶ
+      if (st.rng() >= chance) {
+        if (remembered.length && st.rng() < chance) pool = remembered;
+        else pool = false;                           // 今日は誰も来ない
+      }
+      if (pool !== false) {
+        const c = makeRegularCustomer(st, null, pool);
         if (c) {
           // 冷やかし専門の常連（漆原）だけは、来た日に普通の客を1人押しのける。
           // 「来店枠を食うだけの邪魔者」が彼の役割なので、別枠にすると無害になってしまう
@@ -1379,6 +1393,7 @@
       debt: 0,
       promo: 0,
       promoOpen: false,   // 瑠璃にアカウントを作ってもらったか
+      memories: {},       // イベントを完走した常連の id。周回で持ち越す
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
                 borrowed: 0, repaid: 0, interest: 0 },
     };
@@ -1400,6 +1415,8 @@
         for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
       }
       if (co.skills && prev.skills) for (const id of prev.skills) st.skills[id] = true;
+      // 最後まで付き合った常連との記憶。次の周でその人に会いやすくなる
+      if (co.memories && prev.memories) for (const id of prev.memories) st.memories[id] = true;
       // 一度知ったことは知ったまま。次の周でもう一度明かされたりしない
       if (co.reveals && prev.reveals) for (const k of prev.reveals) st.reveals[k] = { carried: true };
       if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
@@ -1430,7 +1447,7 @@
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
-      reveals: Object.keys(st.reveals || {}),
+      reveals: Object.keys(st.reveals || {}), memories: Object.keys(st.memories || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
     condLabel, condMult,

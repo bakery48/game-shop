@@ -128,6 +128,11 @@
         c.appendChild(el('div', 'sub',
           `「次の周へ」で図鑑の登録${s.registered}本を引き継げます（資金と在庫は引き継ぎません）。`
           + '登録済みのソフトは最初から取り寄せで狙えます'));
+        const mem = E.REGULARS.filter(r => st.memories && st.memories[r.id]);
+        c.appendChild(el('div', mem.length ? 'ok' : 'sub',
+          mem.length
+            ? `${mem.map(r => r.name).join('・')}との記憶が残ります。次の周では会いやすくなります`
+            : '最後まで見届けた常連がいません。全4回のイベントを見ると「記憶」が残り、次の周で会いやすくなります'));
       }
       box.appendChild(c);
       for (const key of ['registered', 'owned']) {
@@ -621,7 +626,7 @@
     if (!tb) return;
     tb.innerHTML = '';
     const head = tb.insertRow();
-    ['常連', '素性', '呼び方', '来店', '次のイベントまで'].forEach((h, i) => {
+    ['常連', '素性', '呼び方', '来店', '次のイベントまで', '記憶'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
       if (i === 3) th.className = 'num';
@@ -654,6 +659,12 @@
       if (next === undefined) { nc.textContent = 'すべて見た'; nc.className = 'ok'; }
       else if (s.visits === 0) { nc.textContent = 'まだ来ていない'; nc.className = 'sub'; }
       else { nc.textContent = `あと${Math.max(0, next - s.visits)}回（${s.fired}/${E.THRESHOLDS.length}）`; }
+      // 最後まで見届けた相手とは、次の周でも会いやすい
+      const mc = row.insertCell();
+      if (st.memories && st.memories[r.id]) {
+        mc.textContent = '◯ 会いやすい';
+        mc.className = 'ok';
+      } else { mc.textContent = '——'; mc.className = 'sub'; }
     }
   }
 

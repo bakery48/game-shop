@@ -185,6 +185,55 @@ check('常連の年齢がつじつま合っている', () => {
   assert(by.ruri.born > hi, '瑠璃がスーエレ期を知っている世代になっている');
   return rg.regulars.map(r => `${r.name}${age(r)}`).join(' ');
 });
+check('イベントを完走すると記憶が残り、周回で持ち越される', () => {
+  const st = E.createGame({ seed: 41 });
+  assert(Object.keys(st.memories).length === 0, '最初から記憶がある');
+  const r = E.REGULARS[0];
+  const s = st.regulars[r.id] = { visits: 99, fired: E.THRESHOLDS.length - 1 };
+  st.reputation = 100;
+  // 最後の1件を出させる
+  let got = null;
+  for (let i = 0; i < 200 && !got; i++) {
+    st.regulars[r.id] = { visits: 99, fired: E.THRESHOLDS.length - 1 };
+    const c = E.makeRegularCustomer(st, null, [r]);
+    if (c && c.type === 'event') got = c;
+  }
+  assert(got, '最終イベントが出ない');
+  assert(st.memories[r.id], `${r.name}の記憶が残っていない`);
+  // 引き継ぐ
+  const next = E.createGame({ seed: 42, previous: E.carryFrom(st) });
+  assert(next.memories[r.id], '次の周に持ち越されていない');
+  assert(Object.keys(next.memories).length === 1, '持ち越しすぎている');
+  return `${r.name}との記憶`;
+});
+check('記憶のある常連は外れたときに引き直される', () => {
+  // 「誰も来ない」が出たときだけ、記憶持ちだけでもう一度引く
+  const count = memories => {
+    const st = E.createGame({ seed: 43 });
+    for (const id of memories) st.memories[id] = true;
+    st.reputation = 0;              // 当たりにくい側で差を見る
+    let n = 0, turns = 0;
+    for (let i = 0; i < 600 && !st.ended; i++) {
+      if (st.phase === 'shop') {
+        const q = [st.current].concat(st.queue).filter(Boolean);
+        if (q.some(c => c.regular)) n++;
+        turns++;
+        while (st.phase === 'shop' && st.current) E.answer(st, false);
+      }
+      if (st.phase === 'action') E.doAction(st, 'rest', {});
+      st.reputation = 0; st.cash = 10000000;
+    }
+    return n / Math.max(1, turns);
+  };
+  const none = count([]);
+  const all = count(E.REGULARS.map(r => r.id));
+  const c = E.BALANCE.regulars.visitChance[0];
+  assert(all > none * 1.3, `記憶なし${none.toFixed(2)} / 記憶あり${all.toFixed(2)} で差が出ていない`);
+  // 2回引くので 1-(1-c)^2 に近づくはず
+  const want = 1 - (1 - c) * (1 - c);
+  assert(Math.abs(all - want) < 0.12, `記憶ありの来店率 ${all.toFixed(2)}（理論値${want.toFixed(2)}）`);
+  return `${none.toFixed(2)} → ${all.toFixed(2)}（理論値${want.toFixed(2)}）`;
+});
 check('常連は1ターンに最大1人で、一般客とは別枠', () => {
   // 常連が来た日に普通の客が減ると、常連に会えること自体が損になる。
   // 例外は漆原だけ（冷やかし専門なので枠を食うのが役割）

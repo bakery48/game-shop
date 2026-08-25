@@ -64,6 +64,18 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 取り寄せを1手番で3本頼める`,
       order.ok && order.got === 3, order.why || `${order.got}本`);
 
+    // 常連との記憶: 完走した相手に印が付く
+    const memo = await page.evaluate(() => {
+      const r = Engine.REGULARS[0];
+      st.memories = {}; window.renderUI();
+      const before = document.getElementById('regulars').textContent;
+      st.memories[r.id] = true; window.renderUI();
+      const after = document.getElementById('regulars').textContent;
+      return { before: before.includes('会いやすい'), after: after.includes('会いやすい') };
+    });
+    check(`${scheme}: 記憶のある常連に印が付く`,
+      memo.after && !memo.before, JSON.stringify(memo));
+
     // SNS宣伝: カードから投稿でき、回数と効きが画面に出る
     const promo = await page.evaluate(() => {
       st.promo = 0; st.promoOpen = true;

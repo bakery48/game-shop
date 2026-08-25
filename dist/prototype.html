@@ -1831,9 +1831,9 @@ pre {
   "$comment": "常連キャラとイベント（仕様書 8 節）。events の at は『来店回数』のしきい値。data/software.json のタイトルと紐づいている。来客枠は1回ずつ一般客か常連かを抽選し、常連が当たる確率は評判に連動する。 skill を持つイベントは、既にその交渉術を覚えている周回では skillKnown のセリフに差し替わり、報酬が現金になる。 calls は常連が店主をどう呼ぶかで、主人公の年齢が漏れない呼称だけを使う（「おじいちゃん」「お兄さん」は禁止。子供の「おじさん」は25〜70歳を一括りにする呼び方なので、むしろ年齢を若く錯覚させる）。名前でも呼ばせない。 born は作中の現在（software.json の lore.present）から年齢を出すためのもの。UIには出さないこと——常連の年齢が並ぶと、そこから主人公の年齢が透ける。",
   "visitThresholds": [
     1,
-    3,
-    5,
-    8
+    4,
+    7,
+    10
   ],
   "regulars": [
     {
@@ -2714,7 +2714,7 @@ pre {
      * 資金も在庫も持ち越さないので、店の経営そのものは毎周ゼロから始まる。
      * 登録済みのソフトは最初から取り寄せで狙えるため、完全クリアが現実的になる。
      */
-    carryOver: { registered: true, skills: true, reveals: true, cash: false, cashRatio: 0.2, slots: false },
+    carryOver: { registered: true, skills: true, reveals: true, memories: true, cash: false, cashRatio: 0.2, slots: false },
 
     /**
      * ソフトの状態。最小構成——価格倍率だけを持ち、図鑑には干渉しない。
@@ -3023,11 +3023,12 @@ pre {
   }
 
   /** 次に来る常連を選ぶ。イベントが近い人ほど来やすい */
-  function pickRegular(st, exclude) {
-    if (!REGULARS.length) return null;
-    const avail = exclude ? REGULARS.filter(r => !exclude.has(r.id)) : REGULARS;
+  function pickRegular(st, exclude, only) {
+    const from = only && only.length ? only : REGULARS;
+    if (!from.length) return null;
+    const avail = exclude ? from.filter(r => !exclude.has(r.id)) : from;
     if (!avail.length) return null;
-    const pool = avail.map(r => {
+    const weighted = avail.map(r => {
       const s = regState(st, r.id);
       const next = THRESHOLDS[s.fired];
       // まだイベントが残っている常連を優先する
@@ -3036,12 +3037,12 @@ pre {
       if (r.opensWith && !st[r.opensWith] && !s.fired) eager *= 6;
       return [r, (r.weight || 1) * eager];
     });
-    return rWeighted(st.rng, pool);
+    return rWeighted(st.rng, weighted);
   }
 
   /** 常連の来店を1件作る。しきい値に達していればイベントになる */
-  function makeRegularCustomer(st, exclude) {
-    const r = pickRegular(st, exclude);
+  function makeRegularCustomer(st, exclude, only) {
+    const r = pickRegular(st, exclude, only);
     if (!r) return null;
     if (exclude) exclude.add(r.id);
     const s = regState(st, r.id);
@@ -3055,6 +3056,11 @@ pre {
       const needsSlot = ev.type === 'gift' || ev.type === 'giftUltra' || ev.type === 'offer';
       if (!needsSlot || freeSlots(st) > 0) {
         s.fired++;
+        // 最後まで見届けたら「◯◯との記憶」が残る。次の周でこの人が来やすくなる
+        if (s.fired >= THRESHOLDS.length && !st.memories[r.id]) {
+          st.memories[r.id] = true;
+          log(st, 'memory', `${r.name}との記憶が残った。次の周でも会いやすくなる。`, 0);
+        }
         return { type: 'event', regular: who, event: ev };
       }
     }
@@ -3097,8 +3103,16 @@ pre {
     const rg = st.cfg.regulars;
     if (rg.enabled && REGULARS.length) {
       const chance = Array.isArray(rg.visitChance) ? byRep(st, rg.visitChance) : rg.visitChance;
-      if (st.rng() < chance) {
-        const c = makeRegularCustomer(st);
+      // 「誰も来ない」が出たときだけ、記憶のある常連だけでもう一度引き直す。
+      // 前の周で最後まで付き合った相手とは、また会いやすい
+      const remembered = REGULARS.filter(r => st.memories[r.id]);
+      let pool = null;                               // null なら全員から選ぶ
+      if (st.rng() >= chance) {
+        if (remembered.length && st.rng() < chance) pool = remembered;
+        else pool = false;                           // 今日は誰も来ない
+      }
+      if (pool !== false) {
+        const c = makeRegularCustomer(st, null, pool);
         if (c) {
           // 冷やかし専門の常連（漆原）だけは、来た日に普通の客を1人押しのける。
           // 「来店枠を食うだけの邪魔者」が彼の役割なので、別枠にすると無害になってしまう
@@ -3885,6 +3899,7 @@ pre {
       debt: 0,
       promo: 0,
       promoOpen: false,   // 瑠璃にアカウントを作ってもらったか
+      memories: {},       // イベントを完走した常連の id。周回で持ち越す
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
                 borrowed: 0, repaid: 0, interest: 0 },
     };
@@ -3906,6 +3921,8 @@ pre {
         for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
       }
       if (co.skills && prev.skills) for (const id of prev.skills) st.skills[id] = true;
+      // 最後まで付き合った常連との記憶。次の周でその人に会いやすくなる
+      if (co.memories && prev.memories) for (const id of prev.memories) st.memories[id] = true;
       // 一度知ったことは知ったまま。次の周でもう一度明かされたりしない
       if (co.reveals && prev.reveals) for (const k of prev.reveals) st.reveals[k] = { carried: true };
       if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
@@ -3936,7 +3953,7 @@ pre {
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
-      reveals: Object.keys(st.reveals || {}),
+      reveals: Object.keys(st.reveals || {}), memories: Object.keys(st.memories || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
     condLabel, condMult,
@@ -4395,6 +4412,11 @@ pre {
         c.appendChild(el('div', 'sub',
           `「次の周へ」で図鑑の登録${s.registered}本を引き継げます（資金と在庫は引き継ぎません）。`
           + '登録済みのソフトは最初から取り寄せで狙えます'));
+        const mem = E.REGULARS.filter(r => st.memories && st.memories[r.id]);
+        c.appendChild(el('div', mem.length ? 'ok' : 'sub',
+          mem.length
+            ? `${mem.map(r => r.name).join('・')}との記憶が残ります。次の周では会いやすくなります`
+            : '最後まで見届けた常連がいません。全4回のイベントを見ると「記憶」が残り、次の周で会いやすくなります'));
       }
       box.appendChild(c);
       for (const key of ['registered', 'owned']) {
@@ -4888,7 +4910,7 @@ pre {
     if (!tb) return;
     tb.innerHTML = '';
     const head = tb.insertRow();
-    ['常連', '素性', '呼び方', '来店', '次のイベントまで'].forEach((h, i) => {
+    ['常連', '素性', '呼び方', '来店', '次のイベントまで', '記憶'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
       if (i === 3) th.className = 'num';
@@ -4921,6 +4943,12 @@ pre {
       if (next === undefined) { nc.textContent = 'すべて見た'; nc.className = 'ok'; }
       else if (s.visits === 0) { nc.textContent = 'まだ来ていない'; nc.className = 'sub'; }
       else { nc.textContent = `あと${Math.max(0, next - s.visits)}回（${s.fired}/${E.THRESHOLDS.length}）`; }
+      // 最後まで見届けた相手とは、次の周でも会いやすい
+      const mc = row.insertCell();
+      if (st.memories && st.memories[r.id]) {
+        mc.textContent = '◯ 会いやすい';
+        mc.className = 'ok';
+      } else { mc.textContent = '——'; mc.className = 'sub'; }
     }
   }
 
