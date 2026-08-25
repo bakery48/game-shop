@@ -181,7 +181,23 @@ check('常連の年齢がつじつま合っている', () => {
   const uAtEnd = hi - by.urushibara.born;
   assert(uAtEnd >= 6 && uAtEnd <= 18, `漆原がスーエレ末期に${uAtEnd}歳では「小学生の俺」に合わない`);
   assert(age(by.satoe) - 25 >= 40, 'サトエさんに独立した息子と孫がいるには若すぎる');
+  assert(age(by.satoe) - age(by.ruri) >= 40, '瑠璃がサトエさんの孫にしては歳が近すぎる');
+  assert(by.ruri.born > hi, '瑠璃がスーエレ期を知っている世代になっている');
   return rg.regulars.map(r => `${r.name}${age(r)}`).join(' ');
+});
+check('瑠璃だけが先代を知らない', () => {
+  // 他の常連は全員「先代の店」として見ている。彼女だけが店主だけを見ている
+  const r = rg.regulars.find(x => x.id === 'ruri');
+  assert(r, '瑠璃がいない');
+  const all = (r.lines || []).concat(r.events.map(e => e.text));
+  for (const line of all) {
+    assert(!/先代|前の店主|叔父/.test(line), `瑠璃が先代を知っている口ぶり: ${line.slice(0, 24)}`);
+  }
+  // 逆に、先代を知っている常連が他にいること
+  const knows = rg.regulars.filter(x => x.id !== 'ruri'
+    && (x.lines || []).concat(x.events.map(e => e.text)).some(l => /先代/.test(l)));
+  assert(knows.length >= 2, `先代に触れる常連が${knows.length}人しかいない`);
+  return `瑠璃は面識なし / 先代を知るのは${knows.map(x => x.name).join('・')}`;
 });
 check('常連の守備範囲が混ざっていない', () => {
   // 蜷川=モノの価値 / 大町=商売 / 漆原=知識（開発秘話）。
@@ -764,11 +780,35 @@ check('指名の贈り物は激レアに化けない', () => {
   assert(st.inv.filter(i => i.titleId === t.id).length === before + 2, '2本目で別の物に化けた');
   return `「${t.name}」（${t.tier}）を2本とも同じ物として受け取った`;
 });
+check('宣伝は瑠璃のイベントで解禁される', () => {
+  // 週ではなくイベントで開く。1回目の来店で必ず開くこと
+  const st = E.createGame({ seed: 23 });
+  assert(!E.unlocked(st, 'promo'), '最初から宣伝できる');
+  const ruri = E.REGULARS.find(r => r.id === 'ruri');
+  assert(ruri, '瑠璃がいない');
+  const ev = ruri.events[0];
+  assert(ev.type === 'openPromo', `1回目が ${ev.type}`);
+  assert(E.THRESHOLDS[0] === 1, '1回目の来店で起きない');
+  E.resolveEvent(st, { event: ev, regular: { id: ruri.id, name: ruri.name } }, true);
+  assert(E.unlocked(st, 'promo'), 'イベントを経ても解禁されない');
+  // 通しで回せば必ず開く
+  let opened = 0;
+  for (let s2 = 0; s2 < 12; s2++) {
+    const g = E.createGame({ seed: 600 + s2 });
+    P.playAll(g);
+    if (g.promoOpen) opened++;
+  }
+  assert(opened === 12, `12シード中${opened}回しか解禁されない`);
+  return '12シードすべてで解禁';
+});
 check('宣伝は評判を上げ、50回で頭打ちになる', () => {
   const st = E.createGame({ seed: 21 });
   const c = st.cfg.promo;
   const act = () => { st.phase = 'action'; E.doAction(st, 'promo', {}); };
   assert(E.promoRate(st) === 0, '最初から効いている');
+  act();
+  assert(st.promo === 0, 'アカウントを作る前から投稿できている');
+  st.promoOpen = true;
   const rep0 = st.reputation;
   act();
   assert(st.promo === 1, `回数が ${st.promo}`);

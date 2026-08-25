@@ -181,7 +181,7 @@
      * 行動フェイズの解禁週（仕様書 3 節の週フェーズ設計に対応）。
      * 1〜10週は資金繰りを覚える期間なので、大きく張れる選択肢を出さない。
      */
-    unlock: { bulk: 1, junk: 1, organize: 1, promo: 1, single: 16, expand: 11, order: 26 },
+    unlock: { bulk: 1, junk: 1, organize: 1, single: 16, expand: 11, order: 26 },
 
     /**
      * SNSでの宣伝。手番を1つ使って、評判と「持ち込みの当たりやすさ」を上げる。
@@ -525,7 +525,9 @@
       const s = regState(st, r.id);
       const next = THRESHOLDS[s.fired];
       // まだイベントが残っている常連を優先する
-      const eager = next === undefined ? 0.3 : 1 + Math.max(0, 1 - (next - s.visits) / 6);
+      let eager = next === undefined ? 0.3 : 1 + Math.max(0, 1 - (next - s.visits) / 6);
+      // 導入役は最初に来てもらわないと、解禁される行動がいつまでも出てこない
+      if (r.opensWith && !st[r.opensWith] && !s.fired) eager *= 6;
       return [r, (r.weight || 1) * eager];
     });
     return rWeighted(st.rng, pool);
@@ -637,6 +639,12 @@
     } else if (e.type === 'buyBonus') {
       st.buyBonus += e.value;
       log(st, 'event', `${who.name}: ${e.text}`, 0);
+
+    } else if (e.type === 'openPromo') {
+      st.promoOpen = true;
+      res.opened = true;
+      log(st, 'event', `${who.name}: ${e.text}`, 0);
+      log(st, 'promo', '店のアカウントができた。「SNSで宣伝する」が選べるようになった。', 0);
 
     } else if (e.type === 'gift' || e.type === 'giftUltra') {
       // 指名の贈り物は、既に持っていてもそのまま貰う（ダブりは売ればいい）。
@@ -839,7 +847,11 @@
     return { count: n, titles, junkCount, retail };
   }
 
-  const unlocked = (st, key) => st.week >= (st.cfg.unlock[key] || 1);
+  const unlocked = (st, key) => {
+    // 宣伝だけは週ではなく、アカウントを作ってもらったかどうかで決まる
+    if (key === 'promo') return !!st.promoOpen;
+    return st.week >= (st.cfg.unlock[key] || 1);
+  };
   /** 習得済みスキルの効果を合計する。key は lot / buy / sell / bid / order / unownedBias */
   function skill(st, key) {
     let v = 0;
@@ -1356,6 +1368,7 @@
       reputation: 0,
       debt: 0,
       promo: 0,
+      promoOpen: false,   // 瑠璃にアカウントを作ってもらったか
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
                 borrowed: 0, repaid: 0, interest: 0 },
     };
@@ -1417,5 +1430,6 @@
     /** 判断が要らない客か（会話スキップの対象） */
     skippable: c => !!c && (c.type === 'browser'
       || (c.type === 'event' && c.event && c.event.type !== 'offer')),
+    promoOpen: st => !!st.promoOpen,
   };
 });

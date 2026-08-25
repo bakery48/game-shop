@@ -40,7 +40,7 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 起動する`, booted);
     check(`${scheme}: JSエラーが無い`, errs.length === 0, errs[0]);
     check(`${scheme}: 図鑑が描画される`, (await page.locator('#dex tr').count()) > 100);
-    check(`${scheme}: 常連が描画される`, (await page.locator('#regulars tr').count()) === 8);
+    check(`${scheme}: 常連が描画される`, (await page.locator('#regulars tr').count()) === 9);
     check(`${scheme}: 常連表に呼び方の列がある`,
       (await page.locator('#regulars th').allTextContents()).includes('呼び方'));
     check(`${scheme}: 横スクロールしない`,
@@ -66,7 +66,7 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
 
     // SNS宣伝: カードから投稿でき、回数と効きが画面に出る
     const promo = await page.evaluate(() => {
-      st.promo = 0;
+      st.promo = 0; st.promoOpen = true;
       while (st.phase === 'shop' && st.current) Engine.answer(st, false);
       if (st.phase !== 'action') return { ok: false, why: `行動フェイズに入れない（${st.phase}）` };
       window.renderUI();

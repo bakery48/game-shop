@@ -402,8 +402,13 @@
 
     const pc = st.cfg.promo;
     if (pc && pc.enabled) {
-      if (!E.unlocked(st, 'promo')) locked('SNSで宣伝する', 'promo');
-      else {
+      if (!E.unlocked(st, 'promo')) {
+        const card = el('div', 'card');
+        card.style.borderLeftColor = 'var(--rule)';
+        card.appendChild(el('div', 'who', 'SNSで宣伝する'));
+        card.appendChild(el('div', 'sub', 'アカウントがありません'));
+        box.appendChild(card);
+      } else {
         const done = st.promo || 0, capped = done >= pc.cap;
         const pct = Math.round(E.promoRate(st) * 100);
         mk('SNSで宣伝する',
