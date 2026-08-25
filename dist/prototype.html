@@ -2983,8 +2983,14 @@ pre {
     const who = { id: r.id, name: r.name, title: r.title, visits: s.visits };
     const next = THRESHOLDS[s.fired];
     if (next !== undefined && s.visits >= next && r.events[s.fired]) {
-      s.fired++;
-      return { type: 'event', regular: who, event: r.events[s.fired - 1] };
+      const ev = r.events[s.fired];
+      // 物を置いていく／売ってくれるイベントは、棚が空くまで起こさない。
+      // 満杯のまま起こしても受け取れず、せっかくの来店が無駄になる
+      const needsSlot = ev.type === 'gift' || ev.type === 'giftUltra' || ev.type === 'offer';
+      if (!needsSlot || freeSlots(st) > 0) {
+        s.fired++;
+        return { type: 'event', regular: who, event: ev };
+      }
     }
     // イベント以外の日は普通の客と同じように振る舞う（売買の回数を減らさない）。
     // ただし alwaysBrowser の常連は必ず冷やかしになる＝来店枠を食うだけの邪魔者
@@ -3803,7 +3809,7 @@ pre {
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
       reveals: Object.keys(st.reveals || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer,
     condLabel, condMult,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>

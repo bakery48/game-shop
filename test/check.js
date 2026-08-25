@@ -697,6 +697,33 @@ check('タダで渡す口ぶりのイベントが有料になっていない', (
   assert(!noPrice.length, `値段に触れていない買取イベント: ${noPrice.join('／')}`);
   return `買取イベント${E.REGULARS.reduce((n, r) => n + (r.events || []).filter(e => e.type === 'offer').length, 0)}件`;
 });
+check('棚が満杯のあいだは物をくれるイベントが起きない', () => {
+  const st = E.createGame({ seed: 13 });
+  const sat = E.REGULARS.find(r => r.id === 'satoe');
+  const ev = (sat.events || []).find(e => e.type === 'gift');
+  assert(ev === sat.events[0], '1回目が贈り物イベントである前提が崩れた');
+  const fill = () => { st.cfg = Object.assign({}, st.cfg, { shelfSlots: st.inv.length }); };
+  const open = () => { st.cfg = Object.assign({}, st.cfg, { shelfSlots: st.inv.length + 5 }); };
+
+  fill();
+  st.regulars[sat.id] = { visits: 5, fired: 0 };   // とっくに1回目の条件は満たしている
+  let fired = false;
+  for (let i = 0; i < 40; i++) {
+    const c = E.makeRegularCustomer(st, new Set());
+    if (c && c.type === 'event' && c.regular.id === sat.id) fired = true;
+  }
+  assert(!fired, '満杯なのに贈り物イベントが起きた');
+  assert(st.regulars[sat.id].fired === 0, 'イベントが消費されている');
+
+  open();
+  st.regulars[sat.id].visits = 5;
+  for (let i = 0; i < 40 && !fired; i++) {
+    const c = E.makeRegularCustomer(st, new Set());
+    if (c && c.type === 'event' && c.regular.id === sat.id) fired = true;
+  }
+  assert(fired, '棚を空けても起きない');
+  return '満杯のあいだは持ち越し、空けば起きる';
+});
 check('棚が満杯で受け取れなかったイベントは消えない', () => {
   // イベントは発生時に消費済みになるので、渡せないと激レアが永久に消えていた
   const st = E.createGame({ seed: 12 });
