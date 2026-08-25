@@ -234,6 +234,55 @@ check('記憶のある常連は外れたときに引き直される', () => {
   assert(Math.abs(all - want) < 0.12, `記憶ありの来店率 ${all.toFixed(2)}（理論値${want.toFixed(2)}）`);
   return `${none.toFixed(2)} → ${all.toFixed(2)}（理論値${want.toFixed(2)}）`;
 });
+check('記憶は一人ずつ切り替えられ、絞るほど濃くなる', () => {
+  // 引き直しは記憶が何個あっても1回きり。だから対象を絞ると一人あたりが濃くなる
+  const ids = E.REGULARS.map(r => r.id);
+  const rate = onIds => {
+    const st = E.createGame({ seed: 51 });
+    for (const id of ids) st.memories[id] = true;
+    for (const id of ids) if (!onIds.includes(id)) E.setMemory(st, id, false);
+    let hit = 0, any = 0, turns = 0;
+    for (let i = 0; i < 1500 && !st.ended; i++) {
+      if (st.phase === 'shop') {
+        const q = [st.current].concat(st.queue).filter(Boolean);
+        if (q.some(c => c.regular && c.regular.id === ids[0])) hit++;
+        if (q.some(c => c.regular)) any++;
+        turns++;
+        while (st.phase === 'shop' && st.current) E.answer(st, false);
+      }
+      if (st.phase === 'action') E.doAction(st, 'rest', {});
+      st.reputation = 0; st.cash = 10000000;
+      for (const id of ids) st.regulars[id] = { visits: 0, fired: 0 };
+    }
+    return { one: hit / Math.max(1, turns), any: any / Math.max(1, turns) };
+  };
+  const off = rate([]), one = rate([ids[0]]), all = rate(ids);
+  // 絞ると、その相手に会える率が上がる
+  assert(one.one > all.one * 1.5,
+    `絞っても濃くならない（1人${one.one.toFixed(2)} / 全員${all.one.toFixed(2)}）`);
+  // 記憶を入れると、常連に会えるターン自体が増える（誰か1人でも入れれば同じだけ増える）
+  assert(all.any > off.any * 1.2,
+    `記憶を入れても常連が増えない（切${off.any.toFixed(2)} / 全員${all.any.toFixed(2)}）`);
+  assert(Math.abs(all.any - one.any) < 0.12,
+    `入れる人数で常連の総数が変わっている（1人${one.any.toFixed(2)} / 全員${all.any.toFixed(2)}）`);
+  // 持っていない相手は切り替えられない
+  const st2 = E.createGame({ seed: 52 });
+  assert(E.setMemory(st2, ids[0], false) === false, '未取得の記憶を操作できる');
+  return `${E.REGULARS[0].name}に会えるターン: 切${(off.one * 100).toFixed(0)}%`
+    + ` → 全員${(all.one * 100).toFixed(0)}% → 1人だけ${(one.one * 100).toFixed(0)}%`;
+});
+check('記憶の切り方も周回で持ち越される', () => {
+  const st = E.createGame({ seed: 53 });
+  const ids = E.REGULARS.map(r => r.id);
+  st.memories[ids[0]] = true; st.memories[ids[1]] = true;
+  E.setMemory(st, ids[1], false);
+  const next = E.createGame({ seed: 54, previous: E.carryFrom(st) });
+  assert(next.memories[ids[0]] && next.memories[ids[1]], '記憶が持ち越されていない');
+  assert(!next.memoryOff[ids[0]], '入れていた記憶が切れている');
+  assert(next.memoryOff[ids[1]], '切っていた記憶が入っている');
+  assert(E.activeMemories(next).length === 1, `効いている記憶が${E.activeMemories(next).length}件`);
+  return `${E.REGULARS[0].name}だけを入れた状態で次の周へ`;
+});
 check('常連は1ターンに最大1人で、一般客とは別枠', () => {
   // 常連が来た日に普通の客が減ると、常連に会えること自体が損になる。
   // 例外は漆原だけ（冷やかし専門なので枠を食うのが役割）

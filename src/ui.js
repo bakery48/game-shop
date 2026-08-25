@@ -132,6 +132,7 @@
         c.appendChild(el('div', mem.length ? 'ok' : 'sub',
           mem.length
             ? `${mem.map(r => r.name).join('・')}との記憶が残ります。次の周では会いやすくなります`
+              + '（常連表で一人ずつ切り替えられます。絞るほどその相手に会いやすくなります）'
             : '最後まで見届けた常連がいません。全4回のイベントを見ると「記憶」が残り、次の周で会いやすくなります'));
       }
       box.appendChild(c);
@@ -626,7 +627,7 @@
     if (!tb) return;
     tb.innerHTML = '';
     const head = tb.insertRow();
-    ['常連', '素性', '呼び方', '来店', '次のイベントまで', '記憶'].forEach((h, i) => {
+    ['常連', '素性', '呼び方', '来店', '次のイベントまで', '記憶（押すと切替）'].forEach((h, i) => {
       const th = document.createElement('th');
       th.textContent = h;
       if (i === 3) th.className = 'num';
@@ -659,11 +660,14 @@
       if (next === undefined) { nc.textContent = 'すべて見た'; nc.className = 'ok'; }
       else if (s.visits === 0) { nc.textContent = 'まだ来ていない'; nc.className = 'sub'; }
       else { nc.textContent = `あと${Math.max(0, next - s.visits)}回（${s.fired}/${E.THRESHOLDS.length}）`; }
-      // 最後まで見届けた相手とは、次の周でも会いやすい
+      // 最後まで見届けた相手とは、次の周でも会いやすい。
+      // 引き直しは1回きりなので、絞るほどその相手が濃くなる
       const mc = row.insertCell();
       if (st.memories && st.memories[r.id]) {
-        mc.textContent = '◯ 会いやすい';
-        mc.className = 'ok';
+        const on = !st.memoryOff[r.id];
+        mc.appendChild(btn(on ? '◯ 会いやすい' : '— 切っている',
+          () => { E.setMemory(st, r.id, !on); render(); }, false));
+        mc.className = on ? 'ok' : 'sub';
       } else { mc.textContent = '——'; mc.className = 'sub'; }
     }
   }

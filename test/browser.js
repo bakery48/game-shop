@@ -67,14 +67,25 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     // 常連との記憶: 完走した相手に印が付く
     const memo = await page.evaluate(() => {
       const r = Engine.REGULARS[0];
-      st.memories = {}; window.renderUI();
-      const before = document.getElementById('regulars').textContent;
+      st.memories = {}; st.memoryOff = {}; window.renderUI();
+      const tb = () => document.getElementById('regulars');
+      const before = tb().textContent.includes('会いやすい');
       st.memories[r.id] = true; window.renderUI();
-      const after = document.getElementById('regulars').textContent;
-      return { before: before.includes('会いやすい'), after: after.includes('会いやすい') };
+      const after = tb().textContent.includes('会いやすい');
+      // 押すと切れる／もう一度押すと戻る
+      const cell = [...tb().rows].find(x => x.cells[0].textContent.includes(r.name));
+      const b = cell && cell.querySelector('button');
+      if (!b) return { before, after, why: '切替ボタンが無い' };
+      b.click();
+      const offNow = !!st.memoryOff[r.id] && tb().textContent.includes('切っている');
+      [...tb().rows].find(x => x.cells[0].textContent.includes(r.name))
+        .querySelector('button').click();
+      const backOn = !st.memoryOff[r.id];
+      return { before, after, offNow, backOn };
     });
-    check(`${scheme}: 記憶のある常連に印が付く`,
-      memo.after && !memo.before, JSON.stringify(memo));
+    check(`${scheme}: 記憶の印が付き、押すと切り替わる`,
+      memo.after && !memo.before && memo.offNow && memo.backOn,
+      memo.why || JSON.stringify(memo));
 
     // SNS宣伝: カードから投稿でき、回数と効きが画面に出る
     const promo = await page.evaluate(() => {

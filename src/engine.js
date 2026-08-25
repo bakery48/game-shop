@@ -534,6 +534,20 @@
     return rWeighted(st.rng, weighted);
   }
 
+  /** いま効いている記憶。切っている相手は引き直しの対象から外れる */
+  const activeMemories = st => REGULARS.filter(r => st.memories[r.id] && !st.memoryOff[r.id]);
+
+  /**
+   * 記憶のオン・オフ。引き直しは記憶が何個あっても1回なので、
+   * 対象を絞るほどその相手に会いやすくなる（全部入れると薄まる）
+   */
+  function setMemory(st, id, on) {
+    if (!st.memories[id]) return false;
+    if (on) delete st.memoryOff[id];
+    else st.memoryOff[id] = true;
+    return true;
+  }
+
   /** 常連の来店を1件作る。しきい値に達していればイベントになる */
   function makeRegularCustomer(st, exclude, only) {
     const r = pickRegular(st, exclude, only);
@@ -598,8 +612,9 @@
     if (rg.enabled && REGULARS.length) {
       const chance = Array.isArray(rg.visitChance) ? byRep(st, rg.visitChance) : rg.visitChance;
       // 「誰も来ない」が出たときだけ、記憶のある常連だけでもう一度引き直す。
-      // 前の周で最後まで付き合った相手とは、また会いやすい
-      const remembered = REGULARS.filter(r => st.memories[r.id]);
+      // 前の周で最後まで付き合った相手とは、また会いやすい。
+      // 引き直しは1回きりなので、入れる人数を絞るほど一人あたりは濃くなる
+      const remembered = activeMemories(st);
       let pool = null;                               // null なら全員から選ぶ
       if (st.rng() >= chance) {
         if (remembered.length && st.rng() < chance) pool = remembered;
@@ -1394,6 +1409,7 @@
       promo: 0,
       promoOpen: false,   // 瑠璃にアカウントを作ってもらったか
       memories: {},       // イベントを完走した常連の id。周回で持ち越す
+      memoryOff: {},      // そのうち、いま切っているもの。絞るほど残りが濃くなる
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
                 borrowed: 0, repaid: 0, interest: 0 },
     };
@@ -1416,7 +1432,10 @@
       }
       if (co.skills && prev.skills) for (const id of prev.skills) st.skills[id] = true;
       // 最後まで付き合った常連との記憶。次の周でその人に会いやすくなる
-      if (co.memories && prev.memories) for (const id of prev.memories) st.memories[id] = true;
+      if (co.memories && prev.memories) {
+        for (const id of prev.memories) st.memories[id] = true;
+        for (const id of prev.memoryOff || []) st.memoryOff[id] = true;   // 絞り方も持ち越す
+      }
       // 一度知ったことは知ったまま。次の周でもう一度明かされたりしない
       if (co.reveals && prev.reveals) for (const k of prev.reveals) st.reveals[k] = { carried: true };
       if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
@@ -1448,8 +1467,10 @@
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
       reveals: Object.keys(st.reveals || {}), memories: Object.keys(st.memories || {}),
+      memoryOff: Object.keys(st.memoryOff || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
+    setMemory, activeMemories,
     condLabel, condMult,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
