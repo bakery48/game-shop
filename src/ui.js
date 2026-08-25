@@ -83,6 +83,11 @@
     if (learned.length) {
       add('交渉術', learned.map(k => st.cfg.skills[k].name).join('・'), 'ok');
     }
+    if (st.cfg.promo.enabled && s.promo) {
+      const cap = st.cfg.promo.cap;
+      add('宣伝', `${s.promo} / ${cap}` + (s.promo >= cap ? '（頭打ち）' : ''),
+        s.promo >= cap ? null : 'ok');
+    }
     const ups = Object.values(st.upgrades || {}).reduce((a, b) => a + b, 0);
     if (ups) add('設備', `${ups}件` + (st.clerkBonus ? `／店員${st.clerkBonus}人` : ''));
     add('在庫', `${s.inventory} / ${s.slots}` + (s.junk ? `（雑${s.junk}）` : ''));
@@ -392,6 +397,22 @@
             if (!r.ok) alert({ cash: '資金が足りません', max: 'これ以上は増やせません' }[r.reason] || '買えません');
             render();
           }, st.cash < u.cost, u.desc);
+      }
+    }
+
+    const pc = st.cfg.promo;
+    if (pc && pc.enabled) {
+      if (!E.unlocked(st, 'promo')) locked('SNSで宣伝する', 'promo');
+      else {
+        const done = st.promo || 0, capped = done >= pc.cap;
+        const pct = Math.round(E.promoRate(st) * 100);
+        mk('SNSで宣伝する',
+          capped ? `${done} / ${pc.cap}　もう届く人には届いています`
+                 : `${done} / ${pc.cap}　店の名前が広がっています`,
+          '投稿する', () => { E.doAction(st, 'promo', {}); render(); }, false,
+          `評判が上がり、持っていないソフトが持ち込まれやすくなります`
+          + `（いまの効き ${pct}%／${pc.cap}回で頭打ち）`
+          + (capped ? '｜これ以上は伸びません' : ''));
       }
     }
 

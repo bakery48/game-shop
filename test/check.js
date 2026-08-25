@@ -764,6 +764,34 @@ check('指名の贈り物は激レアに化けない', () => {
   assert(st.inv.filter(i => i.titleId === t.id).length === before + 2, '2本目で別の物に化けた');
   return `「${t.name}」（${t.tier}）を2本とも同じ物として受け取った`;
 });
+check('宣伝は評判を上げ、50回で頭打ちになる', () => {
+  const st = E.createGame({ seed: 21 });
+  const c = st.cfg.promo;
+  const act = () => { st.phase = 'action'; E.doAction(st, 'promo', {}); };
+  assert(E.promoRate(st) === 0, '最初から効いている');
+  const rep0 = st.reputation;
+  act();
+  assert(st.promo === 1, `回数が ${st.promo}`);
+  assert(st.reputation > rep0, '評判が上がっていない');
+  for (let i = 0; i < c.cap * 2; i++) act();
+  assert(st.promo === c.cap, `上限を超えた（${st.promo} / ${c.cap}）`);
+  assert(E.promoRate(st) === 1, '効きが100%になっていない');
+  return `${c.cap}回で頭打ち`;
+});
+check('宣伝すると持っていない物が持ち込まれやすくなる', () => {
+  const st = E.createGame({ seed: 22 });
+  const c = st.cfg.promo;
+  const before = E.sellerOwnedPenalty(st);
+  assert(Math.abs(before - 1) < 1e-9, `撒く前から効いている（${before}）`);
+  st.promo = c.cap;
+  const after = E.sellerOwnedPenalty(st);
+  assert(Math.abs(after - (1 - c.ownedPenalty)) < 1e-9, `上限での重みが ${after}`);
+  assert(after < before, '重みが下がっていない');
+  // 半分だけ撒いた状態は、ちょうど中間になる
+  st.promo = c.cap / 2;
+  assert(Math.abs(E.sellerOwnedPenalty(st) - (1 - c.ownedPenalty / 2)) < 1e-9, '効きが線形でない');
+  return `持っている物の重み 1.00 → ${after.toFixed(2)}`;
+});
 check('処分品引取だけが評判を上げる', () => {
   // 引取は劣化まとめ買いになりがち。「業者相手か、町の人相手か」を評判で分ける
   const g = E.BALANCE.reputation.gain;

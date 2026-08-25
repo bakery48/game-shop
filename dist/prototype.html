@@ -2635,7 +2635,19 @@ pre {
      * 行動フェイズの解禁週（仕様書 3 節の週フェーズ設計に対応）。
      * 1〜10週は資金繰りを覚える期間なので、大きく張れる選択肢を出さない。
      */
-    unlock: { bulk: 1, junk: 1, organize: 1, single: 16, expand: 11, order: 26 },
+    unlock: { bulk: 1, junk: 1, organize: 1, promo: 1, single: 16, expand: 11, order: 26 },
+
+    /**
+     * SNSでの宣伝。手番を1つ使って、評判と「持ち込みの当たりやすさ」を上げる。
+     * 撒くほど店の名前が知られて、持っていないソフトが持ち込まれやすくなるが、
+     * 上限まで行くと届く範囲が飽和してそれ以上は伸びない。
+     */
+    promo: {
+      enabled: true,
+      cap: 50,             // これ以上撒いても伸びない回数
+      rep: 0.8,            // 1回あたりの評判（評判側の逓減はそのまま掛かる）
+      ownedPenalty: 0.85,  // 上限まで撒くと、持っている物が持ち込まれる重みが 1 → 0.15
+    },
 
     /**
      * 取り寄せ（仕様書 3 節「46〜50週: 最後の数本を狙い撃つ」に対応する手段）。
@@ -2859,7 +2871,7 @@ pre {
   function stats(st) {
     const owned = ownedIds(st);
     return {
-      week: st.week, half: st.half, cash: st.cash, debt: st.debt,
+      week: st.week, half: st.half, cash: st.cash, debt: st.debt, promo: st.promo,
       inventory: st.inv.length, slots: st.cfg.shelfSlots, displaySlots: st.cfg.displaySlots,
       reputation: Math.round(st.reputation * 10) / 10,
       junk: st.inv.filter(i => i.junk).length,
@@ -3117,6 +3129,22 @@ pre {
     return res;
   }
 
+  // 宣伝のログ。語り口が若く読めるのは意図的だが、年齢そのものは書かない
+  const PROMO_LINES = [
+    '入荷したぶんを並べて写真を撮り、店のアカウントに上げた。',
+    '棚の背表紙が揃っているところを撮った。この並びが分かる人には分かる。',
+    '「今日入った箱」と書いて中身を並べた。開封の順に撮るのがいいらしい。',
+    '値札の付け方を訊かれたので、そのまま投稿にした。伸びた。',
+    '当時の広告の話を書いたら、思ったより読まれた。',
+    '在庫の棚をゆっくり映した動画を上げた。何が良いのかは自分でも分からない。',
+    '「この箱の角の潰れ方が好きな人はいますか」と書いた。何人かいた。',
+    '営業日の告知だけのつもりが、隅に写ったソフトのほうが話題になった。',
+  ];
+  const PROMO_CAPPED = [
+    'いつもどおり投稿した。もう届く人には届いているらしく、反応は変わらない。',
+    '写真を上げた。伸びも落ちもしない。このあたりが天井なのだろう。',
+  ];
+
   const BROWSE_LINES = [
     'この棚、前より増えたね。',
     '昔ここで買ったソフトを探してるんだ。また来るよ。',
@@ -3148,7 +3176,7 @@ pre {
         w.common = Math.max(0.05, (w.common || 0) - b * 1.5);
       }
       const tier = pickTier(st.rng, w);
-      const t = pickTitle(st, tier, { byDemand: true });
+      const t = pickTitle(st, tier, { byDemand: true, ownedPenalty: sellerOwnedPenalty(st) });
       if (!t) return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
       const r = st.cfg.sellerAskRange;
       const cond = rollCond(st, 'seller');
@@ -3299,6 +3327,23 @@ pre {
   };
   /** 評判から決まる値を線形補間する */
   const byRep = (st, range) => range[0] + repRate(st) * (range[1] - range[0]);
+
+  /** 宣伝がどこまで効いているか。0〜1 */
+  function promoRate(st) {
+    const c = st.cfg.promo;
+    if (!c || !c.enabled || !c.cap) return 0;
+    return Math.min(1, (st.promo || 0) / c.cap);
+  }
+
+  /**
+   * 持ち込みで「持っている物」が選ばれる重み。
+   * 宣伝を撒くほど下がる＝図鑑の穴が埋まりやすくなる
+   */
+  function sellerOwnedPenalty(st) {
+    const c = st.cfg.promo;
+    if (!c || !c.enabled) return 1;
+    return 1 - promoRate(st) * c.ownedPenalty;
+  }
 
   function generateOffers(st) {
     const cfg = st.cfg;
@@ -3469,6 +3514,14 @@ pre {
       if (e.customers) st.clerkBonus += e.customers;
       res.spent = up.cost;
       log(st, 'upgrade', `${up.name}（${st.upgrades[up.id]}/${up.max}）`, -up.cost);
+
+    } else if (key === 'promo') {
+      if (!unlocked(st, 'promo')) return { ok: false, reason: 'locked' };
+      const c = st.cfg.promo;
+      const capped = st.promo >= c.cap;
+      if (!capped) st.promo++;
+      rep(st, c.rep);
+      log(st, 'promo', capped ? rPick(st.rng, PROMO_CAPPED) : rPick(st.rng, PROMO_LINES), 0);
 
     } else if (key === 'rest') {
       log(st, 'rest', '店を閉めて休んだ', 0);
@@ -3756,6 +3809,7 @@ pre {
       upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {}, reveals: {},
       reputation: 0,
       debt: 0,
+      promo: 0,
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
                 borrowed: 0, repaid: 0, interest: 0 },
     };
@@ -3809,7 +3863,7 @@ pre {
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
       reveals: Object.keys(st.reveals || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
     condLabel, condMult,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
@@ -3854,6 +3908,8 @@ pre {
     warChestFromWeek: 99,    // 終盤の仕入れ抑制（仕入れは売り物の供給源でもあるため既定は無効）
     weekdayFloor: 1.0,     // 平日でも家賃分は必ず残す（週末の投げ売りを防ぐ）
     dumpStaleWeeks: 10,    // これ以上寝ている並品は卸す
+    promoUntilWeek: 20,    // 宣伝に手番を割くのはこの週まで
+    promoWhileRepBelow: 40, // 評判がこれ未満なら仕入れより宣伝を優先する
   };
 
   const isDup = (st, titleId) => E.countOf(st, titleId) > 1;
@@ -4041,6 +4097,13 @@ pre {
     // 6. 序盤の単品入札（資金に余裕があるときだけ）
     if (singleWanted) return { key: 'single', params: { bid: singleBid } };
 
+    // 6.5. 宣伝: 評判が低いうちは、1手番の使い道として仕入れより効く。
+    //      評判は来客数と値札売りの本数を決めるので、序盤ほど利回りが良い
+    if (canPromo(st) && st.week <= TUNING.promoUntilWeek
+        && st.reputation < TUNING.promoWhileRepBelow) {
+      return { key: 'promo', params: {} };
+    }
+
     // 7. 処分品引取: 枠が余っているとき。ただ働きでも在庫は増える
     if (o.junk && slots >= TUNING.junkMinSlots && weeksLeft > 2
         && (st.cash - o.junk.cost >= floor || o.junk.cost === 0)) {
@@ -4050,6 +4113,9 @@ pre {
     // 8. それ以外は整理（枠を空けて次の仕入れに備える）
     const uids = pickDump(st);
     if (uids.length) return { key: 'organize', params: { wholesale: uids } };
+
+    // 9. 整理する物も無ければ宣伝。休むよりは店の名前が広がる
+    if (canPromo(st)) return { key: 'promo', params: {} };
     return { key: 'rest', params: {} };
   }
 
@@ -4082,6 +4148,12 @@ pre {
       ? st.cfg.rent + TUNING.reserve : Math.round(st.cfg.rent * TUNING.weekdayFloor);
     const need = o.bulk.cost + rentFloor - st.cash;
     return need > 0 ? E.borrow(st, need) : 0;
+  }
+
+  /** まだ宣伝が効く余地があるか */
+  function canPromo(st) {
+    const c = st.cfg.promo;
+    return !!(c && c.enabled && E.unlocked(st, 'promo') && (st.promo || 0) < c.cap);
   }
 
   /** 1ターン進める */
@@ -4201,6 +4273,11 @@ pre {
     const learned = Object.keys(st.skills || {});
     if (learned.length) {
       add('交渉術', learned.map(k => st.cfg.skills[k].name).join('・'), 'ok');
+    }
+    if (st.cfg.promo.enabled && s.promo) {
+      const cap = st.cfg.promo.cap;
+      add('宣伝', `${s.promo} / ${cap}` + (s.promo >= cap ? '（頭打ち）' : ''),
+        s.promo >= cap ? null : 'ok');
     }
     const ups = Object.values(st.upgrades || {}).reduce((a, b) => a + b, 0);
     if (ups) add('設備', `${ups}件` + (st.clerkBonus ? `／店員${st.clerkBonus}人` : ''));
@@ -4511,6 +4588,22 @@ pre {
             if (!r.ok) alert({ cash: '資金が足りません', max: 'これ以上は増やせません' }[r.reason] || '買えません');
             render();
           }, st.cash < u.cost, u.desc);
+      }
+    }
+
+    const pc = st.cfg.promo;
+    if (pc && pc.enabled) {
+      if (!E.unlocked(st, 'promo')) locked('SNSで宣伝する', 'promo');
+      else {
+        const done = st.promo || 0, capped = done >= pc.cap;
+        const pct = Math.round(E.promoRate(st) * 100);
+        mk('SNSで宣伝する',
+          capped ? `${done} / ${pc.cap}　もう届く人には届いています`
+                 : `${done} / ${pc.cap}　店の名前が広がっています`,
+          '投稿する', () => { E.doAction(st, 'promo', {}); render(); }, false,
+          `評判が上がり、持っていないソフトが持ち込まれやすくなります`
+          + `（いまの効き ${pct}%／${pc.cap}回で頭打ち）`
+          + (capped ? '｜これ以上は伸びません' : ''));
       }
     }
 

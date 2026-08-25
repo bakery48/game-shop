@@ -30,6 +30,8 @@
     warChestFromWeek: 99,    // 終盤の仕入れ抑制（仕入れは売り物の供給源でもあるため既定は無効）
     weekdayFloor: 1.0,     // 平日でも家賃分は必ず残す（週末の投げ売りを防ぐ）
     dumpStaleWeeks: 10,    // これ以上寝ている並品は卸す
+    promoUntilWeek: 20,    // 宣伝に手番を割くのはこの週まで
+    promoWhileRepBelow: 40, // 評判がこれ未満なら仕入れより宣伝を優先する
   };
 
   const isDup = (st, titleId) => E.countOf(st, titleId) > 1;
@@ -217,6 +219,13 @@
     // 6. 序盤の単品入札（資金に余裕があるときだけ）
     if (singleWanted) return { key: 'single', params: { bid: singleBid } };
 
+    // 6.5. 宣伝: 評判が低いうちは、1手番の使い道として仕入れより効く。
+    //      評判は来客数と値札売りの本数を決めるので、序盤ほど利回りが良い
+    if (canPromo(st) && st.week <= TUNING.promoUntilWeek
+        && st.reputation < TUNING.promoWhileRepBelow) {
+      return { key: 'promo', params: {} };
+    }
+
     // 7. 処分品引取: 枠が余っているとき。ただ働きでも在庫は増える
     if (o.junk && slots >= TUNING.junkMinSlots && weeksLeft > 2
         && (st.cash - o.junk.cost >= floor || o.junk.cost === 0)) {
@@ -226,6 +235,9 @@
     // 8. それ以外は整理（枠を空けて次の仕入れに備える）
     const uids = pickDump(st);
     if (uids.length) return { key: 'organize', params: { wholesale: uids } };
+
+    // 9. 整理する物も無ければ宣伝。休むよりは店の名前が広がる
+    if (canPromo(st)) return { key: 'promo', params: {} };
     return { key: 'rest', params: {} };
   }
 
@@ -258,6 +270,12 @@
       ? st.cfg.rent + TUNING.reserve : Math.round(st.cfg.rent * TUNING.weekdayFloor);
     const need = o.bulk.cost + rentFloor - st.cash;
     return need > 0 ? E.borrow(st, need) : 0;
+  }
+
+  /** まだ宣伝が効く余地があるか */
+  function canPromo(st) {
+    const c = st.cfg.promo;
+    return !!(c && c.enabled && E.unlocked(st, 'promo') && (st.promo || 0) < c.cap);
   }
 
   /** 1ターン進める */

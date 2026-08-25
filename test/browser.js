@@ -64,6 +64,26 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 取り寄せを1手番で3本頼める`,
       order.ok && order.got === 3, order.why || `${order.got}本`);
 
+    // SNS宣伝: カードから投稿でき、回数と効きが画面に出る
+    const promo = await page.evaluate(() => {
+      st.promo = 0;
+      while (st.phase === 'shop' && st.current) Engine.answer(st, false);
+      if (st.phase !== 'action') return { ok: false, why: `行動フェイズに入れない（${st.phase}）` };
+      window.renderUI();
+      const card = [...document.querySelectorAll('.card')]
+        .find(c => c.textContent.includes('SNSで宣伝する'));
+      if (!card) return { ok: false, why: '宣伝のカードが無い' };
+      const btn = [...card.querySelectorAll('button')].find(b => b.textContent.includes('投稿'));
+      if (!btn) return { ok: false, why: '投稿ボタンが無い' };
+      const rep = st.reputation;
+      btn.click();
+      const stat = document.getElementById('stat').textContent;
+      return { ok: true, n: st.promo, up: st.reputation > rep, shown: stat.includes('宣伝') };
+    });
+    check(`${scheme}: SNS宣伝が投稿できて画面に出る`,
+      promo.ok && promo.n === 1 && promo.up && promo.shown,
+      promo.why || JSON.stringify(promo));
+
     // 会話スキップ: 判断の要らない客だけ自動で進み、判断が要る客は残る
     const skip = await page.evaluate(() => {
       const box = document.getElementById('skipTalk');

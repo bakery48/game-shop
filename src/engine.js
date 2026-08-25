@@ -181,7 +181,19 @@
      * 行動フェイズの解禁週（仕様書 3 節の週フェーズ設計に対応）。
      * 1〜10週は資金繰りを覚える期間なので、大きく張れる選択肢を出さない。
      */
-    unlock: { bulk: 1, junk: 1, organize: 1, single: 16, expand: 11, order: 26 },
+    unlock: { bulk: 1, junk: 1, organize: 1, promo: 1, single: 16, expand: 11, order: 26 },
+
+    /**
+     * SNSでの宣伝。手番を1つ使って、評判と「持ち込みの当たりやすさ」を上げる。
+     * 撒くほど店の名前が知られて、持っていないソフトが持ち込まれやすくなるが、
+     * 上限まで行くと届く範囲が飽和してそれ以上は伸びない。
+     */
+    promo: {
+      enabled: true,
+      cap: 50,             // これ以上撒いても伸びない回数
+      rep: 0.8,            // 1回あたりの評判（評判側の逓減はそのまま掛かる）
+      ownedPenalty: 0.85,  // 上限まで撒くと、持っている物が持ち込まれる重みが 1 → 0.15
+    },
 
     /**
      * 取り寄せ（仕様書 3 節「46〜50週: 最後の数本を狙い撃つ」に対応する手段）。
@@ -405,7 +417,7 @@
   function stats(st) {
     const owned = ownedIds(st);
     return {
-      week: st.week, half: st.half, cash: st.cash, debt: st.debt,
+      week: st.week, half: st.half, cash: st.cash, debt: st.debt, promo: st.promo,
       inventory: st.inv.length, slots: st.cfg.shelfSlots, displaySlots: st.cfg.displaySlots,
       reputation: Math.round(st.reputation * 10) / 10,
       junk: st.inv.filter(i => i.junk).length,
@@ -663,6 +675,22 @@
     return res;
   }
 
+  // 宣伝のログ。語り口が若く読めるのは意図的だが、年齢そのものは書かない
+  const PROMO_LINES = [
+    '入荷したぶんを並べて写真を撮り、店のアカウントに上げた。',
+    '棚の背表紙が揃っているところを撮った。この並びが分かる人には分かる。',
+    '「今日入った箱」と書いて中身を並べた。開封の順に撮るのがいいらしい。',
+    '値札の付け方を訊かれたので、そのまま投稿にした。伸びた。',
+    '当時の広告の話を書いたら、思ったより読まれた。',
+    '在庫の棚をゆっくり映した動画を上げた。何が良いのかは自分でも分からない。',
+    '「この箱の角の潰れ方が好きな人はいますか」と書いた。何人かいた。',
+    '営業日の告知だけのつもりが、隅に写ったソフトのほうが話題になった。',
+  ];
+  const PROMO_CAPPED = [
+    'いつもどおり投稿した。もう届く人には届いているらしく、反応は変わらない。',
+    '写真を上げた。伸びも落ちもしない。このあたりが天井なのだろう。',
+  ];
+
   const BROWSE_LINES = [
     'この棚、前より増えたね。',
     '昔ここで買ったソフトを探してるんだ。また来るよ。',
@@ -694,7 +722,7 @@
         w.common = Math.max(0.05, (w.common || 0) - b * 1.5);
       }
       const tier = pickTier(st.rng, w);
-      const t = pickTitle(st, tier, { byDemand: true });
+      const t = pickTitle(st, tier, { byDemand: true, ownedPenalty: sellerOwnedPenalty(st) });
       if (!t) return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
       const r = st.cfg.sellerAskRange;
       const cond = rollCond(st, 'seller');
@@ -845,6 +873,23 @@
   };
   /** 評判から決まる値を線形補間する */
   const byRep = (st, range) => range[0] + repRate(st) * (range[1] - range[0]);
+
+  /** 宣伝がどこまで効いているか。0〜1 */
+  function promoRate(st) {
+    const c = st.cfg.promo;
+    if (!c || !c.enabled || !c.cap) return 0;
+    return Math.min(1, (st.promo || 0) / c.cap);
+  }
+
+  /**
+   * 持ち込みで「持っている物」が選ばれる重み。
+   * 宣伝を撒くほど下がる＝図鑑の穴が埋まりやすくなる
+   */
+  function sellerOwnedPenalty(st) {
+    const c = st.cfg.promo;
+    if (!c || !c.enabled) return 1;
+    return 1 - promoRate(st) * c.ownedPenalty;
+  }
 
   function generateOffers(st) {
     const cfg = st.cfg;
@@ -1015,6 +1060,14 @@
       if (e.customers) st.clerkBonus += e.customers;
       res.spent = up.cost;
       log(st, 'upgrade', `${up.name}（${st.upgrades[up.id]}/${up.max}）`, -up.cost);
+
+    } else if (key === 'promo') {
+      if (!unlocked(st, 'promo')) return { ok: false, reason: 'locked' };
+      const c = st.cfg.promo;
+      const capped = st.promo >= c.cap;
+      if (!capped) st.promo++;
+      rep(st, c.rep);
+      log(st, 'promo', capped ? rPick(st.rng, PROMO_CAPPED) : rPick(st.rng, PROMO_LINES), 0);
 
     } else if (key === 'rest') {
       log(st, 'rest', '店を閉めて休んだ', 0);
@@ -1302,6 +1355,7 @@
       upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {}, reveals: {},
       reputation: 0,
       debt: 0,
+      promo: 0,
       totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
                 borrowed: 0, repaid: 0, interest: 0 },
     };
@@ -1355,7 +1409,7 @@
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
       reveals: Object.keys(st.reveals || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer,
+    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
     condLabel, condMult,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
