@@ -3084,7 +3084,10 @@ pre {
         res.gained = t.id;
         log(st, 'event', `${who.name}: ${e.text}（「${t.name}」を手に入れた）`, 0);
       } else {
-        log(st, 'event', `${who.name}: ${e.text} ※棚が満杯で受け取れなかった`, 0);
+        // 棚が満杯で受け取れないイベントを消費してしまうと、激レアが永久に消える。
+        // 空けてからもう一度来てもらう
+        res.missed = true;
+        log(st, 'event', `${who.name}: ${e.text} ※棚が満杯で受け取れなかった（また持ってきてくれるだろう）`, 0);
       }
 
     } else if (e.type === 'offer') {
@@ -3093,7 +3096,8 @@ pre {
       const price = Math.round(t.base * e.priceRatio / 100) * 100;
       if (!yes) { log(st, 'event', `${who.name}: 「${t.name}」の話を断った`, 0); return res; }
       if (st.cash < price || freeSlots(st) <= 0) {
-        log(st, 'event', `${who.name}: 「${t.name}」を買えなかった`, 0);
+        res.missed = true;   // 断ったのではなく買えなかっただけなので、話は流さない
+        log(st, 'event', `${who.name}: 「${t.name}」を買えなかった（また声を掛けてくれるだろう）`, 0);
         return res;
       }
       st.cash -= price;
@@ -3158,6 +3162,11 @@ pre {
     const c = st.current;
     if (c.type === 'event') {
       const r = resolveEvent(st, c, yes);
+      // 受け取れなかったイベントは無かったことにして、次の来店でもう一度出す
+      if (r.missed && c.regular) {
+        const rs = regState(st, c.regular.id);
+        rs.fired = Math.max(0, rs.fired - 1);
+      }
       st.current = st.queue.shift() || null;
       if (!st.current) enterActionPhase(st);
       return { customer: c, accepted: true, event: r };

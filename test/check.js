@@ -697,6 +697,28 @@ check('タダで渡す口ぶりのイベントが有料になっていない', (
   assert(!noPrice.length, `値段に触れていない買取イベント: ${noPrice.join('／')}`);
   return `買取イベント${E.REGULARS.reduce((n, r) => n + (r.events || []).filter(e => e.type === 'offer').length, 0)}件`;
 });
+check('棚が満杯で受け取れなかったイベントは消えない', () => {
+  // イベントは発生時に消費済みになるので、渡せないと激レアが永久に消えていた
+  const st = E.createGame({ seed: 12 });
+  const sat = E.REGULARS.find(r => r.id === 'satoe');
+  const ev = (sat.events || []).find(e => e.type === 'gift');
+  const rs = st.regulars[sat.id] = { visits: 1, fired: 1 };
+  // 棚を満杯にする
+  st.cfg = Object.assign({}, st.cfg, { shelfSlots: st.inv.length });
+  assert(E.freeSlots(st) <= 0, '棚が満杯になっていない');
+  const inv = st.inv.length;
+  st.phase = 'shop';
+  st.queue = [];
+  st.current = { type: 'event', regular: { id: sat.id, name: sat.name }, event: ev };
+  E.answer(st, true);
+  assert(st.inv.length === inv, '満杯なのに受け取れている');
+  assert(rs.fired === 0, `イベントが消費されたまま（fired=${rs.fired}）`);
+  // 空ければ受け取れる
+  st.cfg = Object.assign({}, st.cfg, { shelfSlots: st.inv.length + 1 });
+  E.resolveEvent(st, { event: ev, regular: { id: sat.id, name: sat.name } }, true);
+  assert(st.inv.length === inv + 1, '空けても受け取れない');
+  return '満杯なら次の来店に持ち越す';
+});
 check('指名の贈り物は激レアに化けない', () => {
   // 既に持っていると激レアに差し替わる実装だった。中堅1本のつもりが破格の当たりになる
   const st = E.createGame({ seed: 11 });
