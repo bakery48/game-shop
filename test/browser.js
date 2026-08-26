@@ -178,6 +178,50 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 通しでもJSエラーが無い`, errs.length === 0, errs[0]);
     await page.close();
   }
+  // ── スマホ幅 ───────────────────────────────────────────
+  // 横に溢れていないか。1400px幅では気づけないので専用に見る
+  for (const [label, w, h] of [['スマホ', 390, 844], ['細い端末', 360, 780]]) {
+    const page = await browser.newPage({ viewport: { width: w, height: h } });
+    const errs = [];
+    page.on('pageerror', e => errs.push(e.message));
+    await page.goto(file);
+    await page.waitForTimeout(500);
+
+    const over = () => page.evaluate(() => {
+      const doc = document.documentElement.scrollWidth, win = window.innerWidth;
+      // 自分の枠内で横スクロールする表（.scroll の中）は溢れていない扱い
+      const loose = [...document.querySelectorAll('table, pre, .card, #stat, .row')]
+        .filter(e => !e.closest('.scroll'))
+        .filter(e => e.scrollWidth > win + 2)
+        .slice(0, 4).map(e => `${e.tagName}${e.id ? '#' + e.id : ''}=${e.scrollWidth}`);
+      return { doc, win, loose };
+    });
+
+    const start = await over();
+    check(`${label}: 開幕が横に溢れない`,
+      start.doc <= start.win + 1 && !start.loose.length, JSON.stringify(start));
+
+    // 行動フェイズは要素がいちばん多い
+    await page.evaluate(() => {
+      st.week = 30; st.cash = 900000; st.promoOpen = true;
+      st.catalog.slice(0, 80).forEach(t => st.registered.add(t.id));
+      while (st.phase === 'shop' && st.current) Engine.answer(st, false);
+      window.renderUI();
+    });
+    const acting = await over();
+    check(`${label}: 行動フェイズが横に溢れない`,
+      acting.doc <= acting.win + 1 && !acting.loose.length, JSON.stringify(acting));
+
+    // 数字が「29 / 200 (1…」のように切れていないか
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll('#stat b')]
+        .filter(e => e.scrollWidth > e.clientWidth + 1)
+        .map(e => e.textContent));
+    check(`${label}: ステータスの数字が切れない`, !clipped.length, clipped.join(' / '));
+    check(`${label}: JSエラーが無い`, errs.length === 0, errs[0]);
+    await page.close();
+  }
+
   await browser.close();
   console.log('\n' + (failed ? `${failed} 件失敗` : 'ブラウザ確認: 全て成功'));
   process.exit(failed ? 1 : 0);

@@ -31,6 +31,7 @@
 * { box-sizing:border-box; }
 body {
   margin:0; padding:14px 16px 40px; background:var(--paper); color:var(--ink);
+  overflow-wrap:anywhere;
   font:14px/1.6 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
   font-variant-numeric:tabular-nums;
 }
@@ -113,7 +114,7 @@ label { display:inline-flex; gap:5px; align-items:center; font-size:13px; }
 .card .row { margin-top:8px; }
 
 /* ── 表 ─────────────────────────────────────────────────── */
-.scroll { max-height:330px; overflow:auto; border-top:1px solid var(--rule); }
+.scroll { max-height:330px; overflow:auto; overflow-x:auto; border-top:1px solid var(--rule); max-width:100%; }
 table { border-collapse:collapse; width:100%; font-size:12.5px; }
 th, td { border-bottom:1px solid var(--rule-soft); padding:3px 8px; text-align:left; white-space:nowrap; }
 th {
@@ -151,7 +152,33 @@ pre {
 .note { font-size:12px; color:var(--sub); margin-top:10px; }
 .note a { color:var(--info); }
 
-@media (max-width:900px) { .grid { grid-template-columns:1fr; } }
+/* ── 狭い画面 ───────────────────────────────────────────── */
+@media (max-width:900px) {
+  /* minmax(0,…) を外すと min-content が下限になり、表の nowrap が画面を押し広げる */
+  .grid { grid-template-columns:minmax(0,1fr); }
+}
+@media (max-width:560px) {
+  body { padding:10px 10px 32px; font-size:13.5px; }
+  .masthead h1 { font-size:19px; }
+  /* 指で押せる大きさに。狭いほど1行あたりの数を減らす */
+  button { padding:8px 12px; font-size:13px; }
+  input[type=number] { width:72px; padding:6px; }
+  /* 2列。1列あたりを広く取って「29 / 200（14%）」が折り返さないようにする */
+  #stat { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+  #stat > div { padding:6px 8px; }
+  /* 狭い画面では省略記号より折り返しのほうが読める（「29 / 200 (1…」を避ける） */
+  #stat b { font-size:14px; white-space:normal; overflow:visible; text-overflow:clip; }
+  #stat .sub { white-space:normal; }
+  .body { padding:9px 9px; }
+  .card { padding:8px 9px; }
+  .scroll { max-height:44vh; }
+  /* 一覧から選ぶ類はいっぱいに広げる。狭いと選択肢が読めない */
+  select[multiple], select { max-width:100%; }
+  select[multiple] { width:100%; }
+  #log { max-height:38vh; }
+  table { font-size:12px; }
+  th, td { padding:4px 6px; }
+}
 @media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
 </style>
 
@@ -197,7 +224,7 @@ pre {
 
     <div class="panel">
       <h2>常連 <span class="sub">来店を重ねるとイベントが起きる</span></h2>
-      <table id="regulars"></table>
+      <div class="scroll"><table id="regulars"></table></div>
     </div>
 
     <div class="panel">
@@ -4663,7 +4690,8 @@ pre {
       });
       card.appendChild(el('div', 'sub',
         `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`
-        + (batch > 1 ? `（Ctrl＋クリックで${batch}本まで選べます。まとめて頼んでも手番は1回）` : '')));
+        + (batch > 1 ? `（${batch}本まで選べます。まとめて頼んでも手番は1回。`
+                       + 'パソコンならCtrl＋クリック、スマホはそのまま複数タップ）' : '')));
       const row = el('div', 'row');
       row.appendChild(sel);
       row.appendChild(btn('頼む', () => {

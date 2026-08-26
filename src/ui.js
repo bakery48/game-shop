@@ -358,7 +358,8 @@
       });
       card.appendChild(el('div', 'sub',
         `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`
-        + (batch > 1 ? `（Ctrl＋クリックで${batch}本まで選べます。まとめて頼んでも手番は1回）` : '')));
+        + (batch > 1 ? `（${batch}本まで選べます。まとめて頼んでも手番は1回。`
+                       + 'パソコンならCtrl＋クリック、スマホはそのまま複数タップ）' : '')));
       const row = el('div', 'row');
       row.appendChild(sel);
       row.appendChild(btn('頼む', () => {
