@@ -2557,7 +2557,7 @@ pre {
   // ============================================================
   const BALANCE = {
     totalWeeks: 50,        // αテスト版は 10 で作る（UIの「範囲」で切り替え）
-    rent: 32000,
+    rent: 33000,
     startCash: 100000,
     startInventory: 30,
     shelfSlots: 50,          // 保管も含めた総枠
@@ -2584,7 +2584,7 @@ pre {
                      lotCond: 0.20 },
       buzz:        { name: '拡散',     from: null, pending: true,
                      desc: '投稿1回が重くなる。評判の伸びも、持ち込みへの効きも上がる',
-                     promo: 0.60 },
+                     promo: 1.20 },
       charm:       { name: '愛想',     from: null, pending: true,
                      desc: '評判が上がるとき、上がり幅に上乗せされる（下がるときは変わらない）',
                      repGain: 0.35 },
@@ -2737,7 +2737,9 @@ pre {
     promo: {
       enabled: true,
       cap: 50,             // これ以上撒いても伸びない回数
-      rep: 0.8,            // 1回あたりの評判（評判側の逓減はそのまま掛かる）
+      // 1回あたりの評判。0.8では「撒くと最終残高が下がる」＝手番に見合わなかった。
+      // 撒くほど得になる最小の値が2.5（測定は README）
+      rep: 2.5,
       ownedPenalty: 0.85,  // 上限まで撒くと、持っている物が持ち込まれる重みが 1 → 0.15
     },
 
@@ -4101,8 +4103,10 @@ pre {
     warChestFromWeek: 99,    // 終盤の仕入れ抑制（仕入れは売り物の供給源でもあるため既定は無効）
     weekdayFloor: 1.0,     // 平日でも家賃分は必ず残す（週末の投げ売りを防ぐ）
     dumpStaleWeeks: 10,    // これ以上寝ている並品は卸す
-    promoUntilWeek: 20,    // 宣伝に手番を割くのはこの週まで
-    promoWhileRepBelow: 40, // 評判がこれ未満なら仕入れより宣伝を優先する
+    promoUntilWeek: 50,    // 宣伝に手番を割くのはこの週まで
+    promoWhileRepBelow: 100, // 評判がこれ未満なら仕入れより宣伝を優先する
+    // 上の2つは「撒き続ける」設定。宣伝が +2.5 になって手番に見合うようになったので、
+    // 空いた手番は宣伝に回すのが正しくなった（20週/評判40 だと 294k、撒き続けて 394k）
   };
 
   const isDup = (st, titleId) => E.countOf(st, titleId) > 1;

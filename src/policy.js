@@ -30,8 +30,10 @@
     warChestFromWeek: 99,    // 終盤の仕入れ抑制（仕入れは売り物の供給源でもあるため既定は無効）
     weekdayFloor: 1.0,     // 平日でも家賃分は必ず残す（週末の投げ売りを防ぐ）
     dumpStaleWeeks: 10,    // これ以上寝ている並品は卸す
-    promoUntilWeek: 20,    // 宣伝に手番を割くのはこの週まで
-    promoWhileRepBelow: 40, // 評判がこれ未満なら仕入れより宣伝を優先する
+    promoUntilWeek: 50,    // 宣伝に手番を割くのはこの週まで
+    promoWhileRepBelow: 100, // 評判がこれ未満なら仕入れより宣伝を優先する
+    // 上の2つは「撒き続ける」設定。宣伝が +2.5 になって手番に見合うようになったので、
+    // 空いた手番は宣伝に回すのが正しくなった（20週/評判40 だと 294k、撒き続けて 394k）
   };
 
   const isDup = (st, titleId) => E.countOf(st, titleId) > 1;
