@@ -40,8 +40,13 @@
       appraise:    { name: '目利き',   from: '蜷川',
                      desc: '持ち込みを30%安く買い取り、指名客には25%高く売れる', buy: -0.30, sell: 0.25 },
       connections: { name: '顔つなぎ', from: '速水',
-                     desc: 'オークションと取り寄せが30%安くなり、未所持が回ってきやすい',
-                     bid: -0.30, order: -0.30, unownedBias: 0.9 },
+                     desc: 'オークションと取り寄せが30%安くなる',
+                     bid: -0.30, order: -0.30 },
+      // 「未所持が回ってきやすい」は顔つなぎから切り出した。
+      // 未所持は単価が高いので、値引きと同居させると回転が落ちて所持が減る（README）
+      hunting:     { name: '探し物',   from: null, pending: true,
+                     desc: '単品入札に、まだ持っていないソフトが回ってきやすくなる',
+                     unownedBias: 0.9 },
       // pending: 入手方法（誰が教えるか）が未定。決まったら from を埋めてイベントを足す
       scout:       { name: '目星',     from: null, pending: true,
                      desc: 'ロットに良い区分が混ざりやすくなる（並品の一部が上の区分に置き換わる）',
@@ -942,14 +947,30 @@
     if (key === 'promo') return !!st.promoOpen;
     return st.week >= (st.cfg.unlock[key] || 1);
   };
-  /** 習得済みスキルの効果を合計する。key は lot / buy / sell / bid / order / unownedBias */
+  /**
+   * 習得済みスキルの効果を合計する。key は lot / buy / sell / bid / order / unownedBias など。
+   * 手で切っているものは数えない（効き目を1つずつ確かめるための仕掛け）
+   */
   function skill(st, key) {
     let v = 0;
     for (const id in st.skills) {
+      if (st.skillOff && st.skillOff[id]) continue;
       const def = st.cfg.skills[id];
       if (def && def[key]) v += def[key];
     }
     return v;
+  }
+  /** その交渉術がいま効いているか */
+  const skillOn = (st, id) => !!st.skills[id] && !(st.skillOff && st.skillOff[id]);
+  /**
+   * 交渉術を手で入り切りする。検証用——覚えていないものを入れることもできる。
+   * 覚えたかどうか（st.skills）と、効かせるかどうか（st.skillOff）を分けて持つ
+   */
+  function setSkill(st, id, on) {
+    if (!st.cfg.skills[id]) return false;
+    if (on) { st.skills[id] = true; delete st.skillOff[id]; }
+    else { st.skillOff[id] = true; }
+    return true;
   }
   /** いま買える設備・人手の一覧 */
   const availableUpgrades = st => (st.cfg.upgrades || [])
@@ -1457,7 +1478,7 @@
       log: [], ended: false, ending: null, result: null,
       history: { weeks: [], customers: [] },
       ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
-      upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {}, reveals: {},
+      upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {}, skillOff: {}, reveals: {},
       reputation: 0,
       debt: 0,
       promo: 0,
@@ -1484,7 +1505,10 @@
       if (co.registered && prev.registered) {
         for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
       }
-      if (co.skills && prev.skills) for (const id of prev.skills) st.skills[id] = true;
+      if (co.skills && prev.skills) {
+        for (const id of prev.skills) st.skills[id] = true;
+        for (const id of prev.skillOff || []) st.skillOff[id] = true;
+      }
       // 最後まで付き合った常連との記憶。次の周でその人に会いやすくなる
       if (co.memories && prev.memories) {
         for (const id of prev.memories) st.memories[id] = true;
@@ -1520,11 +1544,12 @@
     stats, priceOf, demandOf, titleOf, ownedIds, displayed,
     freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
     carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
+      skillOff: Object.keys(st.skillOff || {}),
       reveals: Object.keys(st.reveals || {}), memories: Object.keys(st.memories || {}),
       memoryOff: Object.keys(st.memoryOff || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
-    setMemory, activeMemories,
+    setMemory, activeMemories, setSkill, skillOn,
     condLabel, condMult, boostTier, boostCond,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>

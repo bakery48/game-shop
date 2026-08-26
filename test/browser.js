@@ -64,6 +64,22 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 取り寄せを1手番で3本頼める`,
       order.ok && order.got === 3, order.why || `${order.got}本`);
 
+    // 交渉術の入り切り: ボタンで1つずつ切り替えられる
+    const sk = await page.evaluate(() => {
+      st.skills = {}; st.skillOff = {}; window.renderUI();
+      const row = () => document.getElementById('skillRow');
+      const n = row().querySelectorAll('button').length;
+      const b = row().querySelectorAll('button')[0];
+      if (!b) return { why: '交渉術のボタンが無い' };
+      b.click();
+      const onNow = Object.keys(st.skills).length === 1;
+      row().querySelectorAll('button')[0].click();
+      const offNow = Object.keys(st.skillOff).length === 1;
+      return { n, onNow, offNow, all: Object.keys(Engine.BALANCE.skills).length };
+    });
+    check(`${scheme}: 交渉術を1つずつ入り切りできる`,
+      sk.n === sk.all && sk.onNow && sk.offNow, sk.why || JSON.stringify(sk));
+
     // 常連との記憶: 完走した相手に印が付く
     const memo = await page.evaluate(() => {
       const r = Engine.REGULARS[0];

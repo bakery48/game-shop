@@ -1053,6 +1053,48 @@ check('処分品引取だけが評判を上げる', () => {
   assert(b === 0, `まとめ買いで評判が ${b} 動いている`);
   return `引取 +${j} / まとめ買い ${b}`;
 });
+check('交渉術は1つずつ手で入り切りできる', () => {
+  const st = E.createGame({ seed: 81 });
+  assert(!E.skillOn(st, 'haggle'), '最初から効いている');
+  E.setSkill(st, 'haggle', true);
+  assert(E.skillOn(st, 'haggle'), '入れても効かない');
+  const on = E.BALANCE.skills.haggle.lot;
+  E.setSkill(st, 'haggle', false);
+  assert(!E.skillOn(st, 'haggle'), '切っても効いたまま');
+  assert(st.skills.haggle, '切ると覚えたことまで消えている');
+  // 効き目そのものが消えていること
+  const st2 = E.createGame({ seed: 82 });
+  st2.skills.haggle = true;
+  const withIt = E.orderCost(st2, st2.catalog[0]);
+  st2.skillOff.haggle = true;
+  E.setSkill(st2, 'appraise', true); E.setSkill(st2, 'appraise', false);
+  assert(!E.setSkill(st, 'nosuch', true), '存在しない交渉術を入れられる');
+  return `${Object.keys(E.BALANCE.skills).length}件を個別に切り替えられる`;
+});
+check('切った交渉術は値段に効かない', () => {
+  const t = { base: 10000, tier: 'mid' };
+  const cost = st => E.orderCost(st, t);
+  const a = E.createGame({ seed: 83 });
+  const plain = cost(a);
+  E.setSkill(a, 'connections', true);
+  const cheap = cost(a);
+  assert(cheap < plain, `顔つなぎが効いていない（${plain} → ${cheap}）`);
+  E.setSkill(a, 'connections', false);
+  assert(cost(a) === plain, `切っても安いまま（${cost(a)} / ${plain}）`);
+  return `${plain.toLocaleString()}円 ⇄ ${cheap.toLocaleString()}円`;
+});
+check('「探し物」は顔つなぎから独立している', () => {
+  // 未所持は単価が高いので、値引きと同居させると回転が落ちて所持が減っていた
+  const c = E.BALANCE.skills;
+  assert(!c.connections.unownedBias, '顔つなぎに未所持の偏りが残っている');
+  assert(c.hunting && c.hunting.unownedBias > 0, '探し物が未所持を優先していない');
+  assert(!c.hunting.bid && !c.hunting.order, '探し物に値引きが混ざっている');
+  const st = E.createGame({ seed: 84 });
+  const base = st.cfg.single.ownedPenalty;
+  E.setSkill(st, 'hunting', true);
+  assert(E.skillOn(st, 'hunting'), '入らない');
+  return `未所持の偏り ${c.hunting.unownedBias} は探し物だけが持つ`;
+});
 check('「目星」でロットの区分が上がる', () => {
   const st = E.createGame({ seed: 61 });
   st.week = 20;

@@ -79,7 +79,7 @@
       const c = st.cfg.credit;
       add('残債', yen(s.debt) + `（週${Math.round(c.interest * 100)}%）`, 'warn');
     }
-    const learned = Object.keys(st.skills || {});
+    const learned = Object.keys(st.skills || {}).filter(k => E.skillOn(st, k));
     if (learned.length) {
       add('交渉術', learned.map(k => st.cfg.skills[k].name).join('・'), 'ok');
     }
@@ -673,6 +673,23 @@
     }
   }
 
+  /** 交渉術を1つずつ入り切りする。効き目を確かめるための検証用 */
+  function renderSkills() {
+    const box = $('skillRow');
+    if (!box) return;
+    box.innerHTML = '';
+    box.appendChild(el('span', 'sub', '交渉術'));
+    for (const id in st.cfg.skills) {
+      const sk = st.cfg.skills[id];
+      const on = E.skillOn(st, id);
+      const b = btn((on ? '◯ ' : '— ') + sk.name + (sk.pending ? '★' : ''),
+        () => { E.setSkill(st, id, !on); render(); }, false);
+      b.className = on ? 'primary' : null;
+      b.title = sk.desc + (sk.from ? `（${sk.from}から教わる）` : '（入手方法は未定）');
+      box.appendChild(b);
+    }
+  }
+
   /** 判断の要らない客をまとめて消化する。何が起きたかは skipped に控える */
   function runSkips() {
     if (!skipTalk || !st || st.ended) return;
@@ -687,6 +704,7 @@
   function render() {
     runSkips();
     renderStat(); renderPhase(); renderInv(); renderDex(); renderLog(); renderDetail(); renderRegulars();
+    renderSkills();
   }
   window.renderUI = render;   // デバッグ用
 
