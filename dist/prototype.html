@@ -2575,6 +2575,13 @@ pre {
       connections: { name: '顔つなぎ', from: '速水',
                      desc: 'オークションと取り寄せが30%安くなり、未所持が回ってきやすい',
                      bid: -0.30, order: -0.30, unownedBias: 0.9 },
+      // pending: 入手方法（誰が教えるか）が未定。決まったら from を埋めてイベントを足す
+      scout:       { name: '目星',     from: null, pending: true,
+                     desc: 'ロットに良い区分が混ざりやすくなる（並品の一部が上の区分に置き換わる）',
+                     lotTier: 0.06 },
+      sorting:     { name: '選り分け', from: null, pending: true,
+                     desc: 'ロットの中身の状態が一段よくなりやすい',
+                     lotCond: 0.20 },
     },
 
     /**
@@ -2861,12 +2868,30 @@ pre {
     return cond;
   }
   /** 仕入れ経路ごとの状態抽選。cond は grades のインデックス */
+  /**
+   * 状態を一段よくする（交渉術「選り分け」）。効くのはロットだけ。
+   * 単品入札やイベントは、そこに在る一本の状態が先に決まっている
+   */
+  function boostCond(st, source, mix) {
+    if (source !== 'bulk' && source !== 'junk') return mix;
+    const b = skill(st, 'lotCond');
+    if (!b) return mix;
+    const out = mix.slice();
+    // 上から順に送る。先に下から動かすと、送った分をもう一度送ってしまう
+    for (let i = out.length - 2; i >= 0; i--) {
+      const move = out[i] * b;
+      out[i] -= move;
+      out[i + 1] += move;
+    }
+    return out;
+  }
+
   function rollCond(st, source, title) {
     const c = st.cfg.condition;
     if (!c || !c.enabled) return 1;
     const forced = fixCond(st, title, null);
     if (forced != null) return forced;
-    const mix = (c.mix && c.mix[source]) || c.mix.bulk;
+    const mix = boostCond(st, source, (c.mix && c.mix[source]) || c.mix.bulk);
     let r = st.rng();
     for (let i = 0; i < mix.length; i++) { r -= mix[i]; if (r <= 0) return i; }
     return mix.length - 1;
@@ -3391,8 +3416,26 @@ pre {
   // 行動フェイズ
   // ============================================================
   /** 週の進みに応じてロットの中身を良くする */
+  /**
+   * ロットの区分を上に押し上げる（交渉術「目星」）。
+   * 並品の一部を、上の区分へその比率のまま振り分ける。
+   * 比率のままなので、処分品引取のようにレアが0の配分では0のまま増えない
+   */
+  function boostTier(st, mix) {
+    const b = skill(st, 'lotTier');
+    if (!b) return mix;
+    const up = ['mid', 'rare', 'ultra'];
+    const sum = up.reduce((a, k) => a + (mix[k] || 0), 0);
+    if (!sum) return mix;
+    const move = (mix.common || 0) * b;
+    const out = Object.assign({}, mix);
+    out.common = (mix.common || 0) - move;
+    for (const k of up) out[k] = (mix[k] || 0) + move * (mix[k] || 0) / sum;
+    return out;
+  }
+
   function lotMix(st, spec) {
-    if (!spec.earlyMix) return spec.mix;
+    if (!spec.earlyMix) return boostTier(st, spec.mix);
     const span = Math.max(1, (spec.mixFullFromWeek || 1) - 1);
     const t = Math.max(0, Math.min(1, (st.week - 1) / span));
     const out = {};
@@ -3400,7 +3443,7 @@ pre {
       const a = spec.earlyMix[k] === undefined ? spec.mix[k] : spec.earlyMix[k];
       out[k] = a + t * (spec.mix[k] - a);
     }
-    return out;
+    return boostTier(st, out);
   }
 
   function rollLot(st, spec) {
@@ -4004,7 +4047,7 @@ pre {
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
     setMemory, activeMemories,
-    condLabel, condMult,
+    condLabel, condMult, boostTier, boostCond,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
       (e && e.skill && st.skills[e.skill] && e.skillKnown) ? e.skillKnown : null,

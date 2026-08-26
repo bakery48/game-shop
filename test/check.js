@@ -445,10 +445,15 @@ check('regulars.json が参照するスキルが実在する', () => {
   }
 });
 check('スキルを教える常連が実在する', () => {
+  // pending は入手方法がまだ決まっていないもの。数を返して見えるようにしておく
   const names = new Set(rg.regulars.map(r => r.name));
+  const pending = [];
   for (const id in E.BALANCE.skills) {
-    assert(names.has(E.BALANCE.skills[id].from), `${id} の from=${E.BALANCE.skills[id].from}`);
+    const sk = E.BALANCE.skills[id];
+    if (sk.pending) { pending.push(sk.name); assert(!sk.from, `${id} は pending なのに from がある`); continue; }
+    assert(names.has(sk.from), `${id} の from=${sk.from}`);
   }
+  return pending.length ? `入手方法が未定: ${pending.join('・')}` : '全員そろっている';
 });
 check('src/software-data.js が data/*.json と一致', () => {
   const gen = require(path.join(root, 'src/software-data.js'));
@@ -623,7 +628,8 @@ check('skill を持つイベントには skillKnown がある', () => {
     assert(e.skillKnown && e.skillKnown.text && e.skillKnown.amount > 0,
       `${r.name}: ${e.skill} に skillKnown が無い`);
   }
-  assert(n === Object.keys(E.BALANCE.skills).length, `${n}件（交渉術の数と合わない）`);
+  const taught = Object.values(E.BALANCE.skills).filter(sk => !sk.pending).length;
+  assert(n === taught, `${n}件（教わる交渉術${taught}件と合わない）`);
   return `${n}件`;
 });
 check('習得済みなら教え直さず現金になる', () => {
@@ -993,6 +999,44 @@ check('処分品引取だけが評判を上げる', () => {
   assert(Math.abs(j - g.junkLot) < 1e-6, `処分品引取で評判が ${j} しか動いていない`);
   assert(b === 0, `まとめ買いで評判が ${b} 動いている`);
   return `引取 +${j} / まとめ買い ${b}`;
+});
+check('「目星」でロットの区分が上がる', () => {
+  const st = E.createGame({ seed: 61 });
+  st.week = 20;
+  const before = E.boostTier(st, E.BALANCE.bulk.mix);
+  st.skills.scout = true;
+  const after = E.boostTier(st, E.BALANCE.bulk.mix);
+  assert(after.rare > before.rare && after.ultra > before.ultra, 'レアが増えていない');
+  assert(after.common < before.common, '並品が減っていない');
+  const sum = k => Object.values(k).reduce((a, b) => a + b, 0);
+  assert(Math.abs(sum(after) - sum(before)) < 1e-9, `確率の合計が ${sum(after)}`);
+  // 上の区分どうしの比は変えない（形を保ったまま押し上げる）
+  assert(Math.abs(after.rare / after.mid - before.rare / before.mid) < 1e-9, '区分の比が崩れている');
+  // レアが0の配分（処分品引取）は0のまま
+  const junk = E.boostTier(st, E.BALANCE.junk.mix);
+  assert(!junk.rare && !junk.ultra, '処分品引取からレアが出るようになっている');
+  return `レア ${(before.rare * 100).toFixed(1)}% → ${(after.rare * 100).toFixed(1)}%`
+    + ` / 激レア ${(before.ultra * 100).toFixed(2)}% → ${(after.ultra * 100).toFixed(2)}%`;
+});
+check('「選り分け」でロットの状態が上がる', () => {
+  const st = E.createGame({ seed: 62 });
+  const c = E.BALANCE.condition;
+  const ev = m => m.reduce((a, p, i) => a + p * c.grades[i].mult, 0);
+  const before = E.boostCond(st, 'bulk', c.mix.bulk);
+  st.skills.sorting = true;
+  const after = E.boostCond(st, 'bulk', c.mix.bulk);
+  assert(Math.abs(ev(before) - 1) < 0.02, `素の期待値が ${ev(before)}`);
+  assert(ev(after) > ev(before), '期待値が上がっていない');
+  assert(after[after.length - 1] > before[before.length - 1], '美品が増えていない');
+  assert(after[0] < before[0], '傷ありが減っていない');
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  assert(Math.abs(sum(after) - 1) < 1e-9, `確率の合計が ${sum(after)}`);
+  // 単品入札やイベントは、そこに在る一本の状態が先に決まっているので効かない
+  for (const src of ['single', 'event', 'seller']) {
+    const m = E.boostCond(st, src, c.mix[src]);
+    assert(m === c.mix[src], `${src} にまで効いている`);
+  }
+  return `期待値 ${ev(before).toFixed(3)} → ${ev(after).toFixed(3)}`;
 });
 check('まとめ買いの状態の期待値が1.0', () => {
   // ここが1.0から外れると、状態を入れただけで経済が動いてしまう。
