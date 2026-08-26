@@ -2582,6 +2582,12 @@ pre {
       sorting:     { name: '選り分け', from: null, pending: true,
                      desc: 'ロットの中身の状態が一段よくなりやすい',
                      lotCond: 0.20 },
+      buzz:        { name: '拡散',     from: null, pending: true,
+                     desc: '投稿1回が重くなる。評判の伸びも、持ち込みへの効きも上がる',
+                     promo: 0.60 },
+      charm:       { name: '愛想',     from: null, pending: true,
+                     desc: '評判が上がるとき、上がり幅に上乗せされる（下がるときは変わらない）',
+                     repGain: 0.35 },
     },
 
     /**
@@ -3489,6 +3495,8 @@ pre {
   function rep(st, delta) {
     const c = st.cfg.reputation;
     if (!c.enabled || !delta) return;
+    // 上乗せは逓減の前に掛ける。逓減の後だと、評判が高いほど効かない二重の壁になる
+    if (delta > 0) delta *= 1 + skill(st, 'repGain');
     if (delta > 0) delta *= Math.pow(1 - repRate(st), c.gainFalloff);
     st.reputation = Math.max(c.min, Math.min(c.max, st.reputation + delta));
   }
@@ -3505,7 +3513,8 @@ pre {
   function promoRate(st) {
     const c = st.cfg.promo;
     if (!c || !c.enabled || !c.cap) return 0;
-    return Math.min(1, (st.promo || 0) / c.cap);
+    // 「拡散」は1回の投稿を重くする。頭打ちの位置は動かさず、そこへ早く届く
+    return Math.min(1, (st.promo || 0) * (1 + skill(st, 'promo')) / c.cap);
   }
 
   /**
@@ -3693,7 +3702,7 @@ pre {
       const c = st.cfg.promo;
       const capped = st.promo >= c.cap;
       if (!capped) st.promo++;
-      rep(st, c.rep);
+      rep(st, c.rep * (1 + skill(st, 'promo')));
       log(st, 'promo', capped ? rPick(st.rng, PROMO_CAPPED) : rPick(st.rng, PROMO_LINES), 0);
 
     } else if (key === 'rest') {

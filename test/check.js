@@ -921,6 +921,59 @@ check('指名の贈り物は激レアに化けない', () => {
   assert(st.inv.filter(i => i.titleId === t.id).length === before + 2, '2本目で別の物に化けた');
   return `「${t.name}」（${t.tier}）を2本とも同じ物として受け取った`;
 });
+check('「拡散」で投稿1回が重くなる', () => {
+  const st = E.createGame({ seed: 71 });
+  st.promoOpen = true;
+  const post = () => { st.phase = 'action'; E.doAction(st, 'promo', {}); };
+  post(); post();
+  const plain = E.promoRate(st);
+  const rep0 = st.reputation;
+
+  const st2 = E.createGame({ seed: 71 });
+  st2.promoOpen = true; st2.skills.buzz = true;
+  const post2 = () => { st2.phase = 'action'; E.doAction(st2, 'promo', {}); };
+  post2(); post2();
+  assert(E.promoRate(st2) > plain, `効きが増えていない（${plain} → ${E.promoRate(st2)}）`);
+  assert(st2.reputation > rep0, '評判の伸びが増えていない');
+  assert(st2.promo === st.promo, '投稿の回数まで増えている');
+  // 頭打ちの位置は動かさない。早く届くだけ
+  st2.promo = st2.cfg.promo.cap;
+  assert(E.promoRate(st2) === 1, `上限を超えている（${E.promoRate(st2)}）`);
+  return `2回投稿した時点の効き ${(plain * 100).toFixed(0)}% → ${(E.promoRate(
+    Object.assign(Object.create(Object.getPrototypeOf(st2)), st2, { promo: 2 })) * 100).toFixed(0)}%`;
+});
+check('「愛想」は上げ幅にだけ乗る', () => {
+  // 下げ幅には乗らない。乗ると「愛想がいいほど損が大きい」ことになる
+  const up = skills => {
+    const st = E.createGame({ seed: 72 });
+    for (const k of skills) st.skills[k] = true;
+    st.phase = 'shop';
+    st.promoOpen = true; st.phase = 'action';
+    E.doAction(st, 'promo', {});   // 評判を上げる行動
+    return st.reputation;
+  };
+  const plain = up([]), charmed = up(['charm']);
+  assert(charmed > plain, `上げ幅が増えていない（${plain} → ${charmed}）`);
+  const b = E.BALANCE.skills.charm.repGain;
+  assert(Math.abs(charmed / plain - (1 + b)) < 0.02, `倍率が ${(charmed / plain).toFixed(3)}（${1 + b}のはず）`);
+
+  // 断って評判が下がる場面では差が出ないこと
+  const down = skills => {
+    const st = E.createGame({ seed: 73 });
+    for (const k of skills) st.skills[k] = true;
+    st.reputation = 50;
+    while (st.phase === 'shop' && st.current && st.current.type !== 'buyer') E.answer(st, false);
+    if (!st.current || st.current.type !== 'buyer') return null;
+    const before = st.reputation;
+    E.answer(st, false);           // 指名客を断る
+    return before - st.reputation;
+  };
+  const d0 = down([]), d1 = down(['charm']);
+  if (d0 != null && d1 != null) {
+    assert(Math.abs(d0 - d1) < 1e-9, `下げ幅まで変わっている（${d0} / ${d1}）`);
+  }
+  return `上げ幅 ×${(1 + b).toFixed(2)}／下げ幅はそのまま`;
+});
 check('宣伝は瑠璃のイベントで解禁される', () => {
   // 週ではなくイベントで開く。1回目の来店で必ず開くこと
   const st = E.createGame({ seed: 23 });
