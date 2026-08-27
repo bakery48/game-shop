@@ -606,6 +606,8 @@
     chip('基準相場', yen(t.base));
     chip('買取目安', yen(t.buy));
     if (t.rating != null) chip('評価', t.rating.toFixed(1));
+    if (t.sales != null) chip('当時の出荷', t.sales.toLocaleString() + '本',
+      t.sales < 10000 ? 'warn' : null);
     chip('所持', E.countOf(st, t.id) + '本', E.countOf(st, t.id) ? 'ok' : 'sub');
     box.appendChild(meta);
     box.appendChild(el('p', 'detail-body', t.desc));

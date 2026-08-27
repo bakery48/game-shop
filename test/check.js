@@ -52,6 +52,65 @@ check('software.json にタイトルの重複がない', () => {
   const n = new Set(sw.titles.map(t => t.title)).size;
   assert(n === sw.titles.length, `${sw.titles.length - n}件が重複`);
 });
+check('全ソフトに出荷本数がある', () => {
+  for (const t of sw.titles) {
+    assert(Number.isInteger(t.sales) && t.sales > 0, `${t.title} の sales=${t.sales}`);
+    assert(t.sales <= 5000000, `${t.title} が${t.sales}本は多すぎる`);
+  }
+  // 生成ぶんも含めた200本すべてに入っていること
+  const st = E.createGame({ seed: 1 });
+  const none = st.catalog.filter(t => !(t.sales > 0));
+  assert(!none.length, `${none.length}本に出荷本数が無い（${none.slice(0, 3).map(t => t.name)}）`);
+  const s = sw.titles.map(t => t.sales).sort((a, b) => a - b);
+  return `${s[0].toLocaleString()}本 〜 ${s[s.length - 1].toLocaleString()}本`;
+});
+check('高いソフトほど出回っていない', () => {
+  // 中古価格は「欲しがる人の数 ÷ 出回っている数」で決まる、という理屈でデータを作った。
+  // 相場と出荷本数が逆相関していなければ、その理屈が崩れている
+  const ts = sw.titles;
+  const rank = vals => {
+    const order = vals.map((v, i) => i).sort((a, b) => vals[a] - vals[b]);
+    const r = new Array(vals.length);
+    order.forEach((i, pos) => { r[i] = pos; });
+    return r;
+  };
+  const rb = rank(ts.map(t => t.base)), rs = rank(ts.map(t => t.sales));
+  const n = ts.length;
+  let d2 = 0;
+  for (let i = 0; i < n; i++) d2 += (rb[i] - rs[i]) ** 2;
+  const rho = 1 - 6 * d2 / (n * (n * n - 1));
+  assert(rho < -0.7, `順位相関 ${rho.toFixed(3)}（負に強く出るはず）`);
+  // 区分ごとの中央値も、希少なほど少ないこと
+  const med = tier => {
+    const xs = ts.filter(t => t.tier === tier).map(t => t.sales).sort((a, b) => a - b);
+    return xs[xs.length >> 1];
+  };
+  const [c, m, r, u] = ['common', 'mid', 'rare', 'ultra'].map(med);
+  assert(c > m && m > r && r > u, `中央値が並んでいない（${c} / ${m} / ${r} / ${u}）`);
+  return `順位相関 ${rho.toFixed(3)}／中央値 並品${c.toLocaleString()} > 中堅${m.toLocaleString()}`
+    + ` > レア${r.toLocaleString()} > 激レア${u.toLocaleString()}`;
+});
+check('出荷本数が本文と食い違っていない', () => {
+  const by = {};
+  for (const t of sw.titles) by[t.title] = t;
+  const few = ['銀河鉄道エキスプレス99 〜試乗体験版〜', '魔導機兵ギガントス',
+    '幻影都市（イリュージョン・シティ）2099'];
+  for (const name of few) {
+    assert(by[name], `「${name}」が無い`);
+    assert(by[name].sales <= 5000, `「${name}」が${by[name].sales}本（幻のはず）`);
+  }
+  // 「全国でわずか14本」と本文に書いてある
+  const demo = by['銀河鉄道エキスプレス99 〜試乗体験版〜'];
+  const m = demo.details.match(/わずか(\d+)本/);
+  assert(m && Number(m[1]) === demo.sales, `本文の「${m && m[1]}本」と sales=${demo.sales} が違う`);
+  // ミリオンと書いてあるものは百万本を超えていること
+  for (const t of sw.titles) {
+    if (/ミリオンセラー/.test(t.details)) {
+      assert(t.sales >= 1000000, `「${t.title}」がミリオンなのに${t.sales}本`);
+    }
+  }
+  return `${few.length}本の幻＋ミリオンの整合`;
+});
 check('software.json の相場と発売年が妥当', () => {
   for (const t of sw.titles) {
     assert(t.base > 0, `${t.title} の base`);

@@ -107,6 +107,29 @@
    * @param {number} total 生成本数（tiers の比率で按分する）
    */
   /** data/software.json の1件をカタログ形式に変換する */
+  /**
+   * 出荷本数。中古価格は「欲しがる人の数 ÷ 出回っている数」で決まるので、
+   * 相場が高いほど出回っていない。評価はその上に少しだけ乗る。
+   * 手書きのソフトは data/software.json の sales が優先される（本文と食い違わせないため）
+   */
+  const SALES_BAND = {
+    common: [40000, 1200000], mid: [25000, 400000],
+    rare: [4000, 80000], ultra: [400, 12000],
+  };
+  function salesFor(tierKey, base, rating, saleRange) {
+    const band = SALES_BAND[tierKey] || SALES_BAND.common;
+    const lo = Math.log(Math.max(1, saleRange[0]));
+    const hi = Math.log(Math.max(saleRange[0] + 1, saleRange[1]));
+    const price = Math.min(1, Math.max(0, (Math.log(Math.max(1, base)) - lo) / (hi - lo)));
+    const rate = Math.min(1, Math.max(0, ((rating || 3) - 1) / 4));
+    const p = 0.65 * (1 - price) + 0.35 * rate;
+    const v = Math.exp(Math.log(band[0]) + p * (Math.log(band[1]) - Math.log(band[0])));
+    if (v >= 100000) return Math.round(v / 10000) * 10000;
+    if (v >= 10000) return Math.round(v / 1000) * 1000;
+    if (v >= 1000) return Math.round(v / 100) * 100;
+    return Math.max(50, Math.round(v / 50) * 50);
+  }
+
   function fromData(entry, id, tiers) {
     const tier = tiers[entry.tier] ? entry.tier : 'common';
     const t = tiers[tier];
@@ -117,6 +140,7 @@
       genre: entry.genre, genreLabel: entry.genre,
       tier, tierLabel: t.label,
       base: entry.base,
+      sales: entry.sales || salesFor(tier, entry.base, entry.rating, t.sale),
       buy: Math.round(entry.base * t.buyRatio / 100) * 100,
       desc: entry.details,
       rating: entry.rating,
@@ -216,6 +240,7 @@
           tier: tierKey,
           tierLabel: tier.label,
           base,                                  // 販売基準相場
+          sales: salesFor(tierKey, base, 3, tier.sale),      // 当時の出荷本数
           buy: Math.round(base * tier.buyRatio / 100) * 100, // 買取目安
           desc: `${maker.name}が${year}年に${hw.name}向けに発売した${GENRE_LABEL[genre]}。`
               + rPick(rng, FLAVOR[genre]) + rPick(rng, RARITY_FLAVOR[tierKey]),

@@ -64,6 +64,23 @@ const file = 'file://' + path.join(__dirname, '..', 'dist', 'prototype.html');
     check(`${scheme}: 取り寄せを1手番で3本頼める`,
       order.ok && order.got === 3, order.why || `${order.got}本`);
 
+    // ソフトの詳細に当時の出荷本数が出る
+    const sales = await page.evaluate(() => {
+      const t = st.catalog.find(x => x.authored);
+      st.registered.add(t.id);
+      window.renderUI();
+      // 図鑑の行をクリックすると詳細が出る、という導線ごと確かめる
+      const row = [...document.querySelectorAll('#dex tr')]
+        .find(r => r.textContent.includes(t.name));
+      if (!row) return { why: '図鑑に行が無い' };
+      row.click();
+      const txt = document.getElementById('detail').textContent;
+      return { has: txt.includes('当時の出荷'),
+               num: txt.includes(t.sales.toLocaleString()), sales: t.sales };
+    });
+    check(`${scheme}: ソフトの詳細に出荷本数が出る`,
+      sales.has && sales.num, JSON.stringify(sales));
+
     // 交渉術の入り切り: ボタンで1つずつ切り替えられる
     const sk = await page.evaluate(() => {
       st.skills = {}; st.skillOff = {}; window.renderUI();
