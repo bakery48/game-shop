@@ -92,7 +92,7 @@
     }
     willing.sort((a, b) => E.demandOf(st, b) * E.priceOf(st, b) - E.demandOf(st, a) * E.priceOf(st, a));
     // 非売品は保管に回し、陳列枠は売り物だけで埋める
-    const show = new Set(willing.slice(0, cfg.displaySlots).map(i => i.uid));
+    const show = new Set(willing.slice(0, E.displayCap(st)).map(i => i.uid));
     for (const item of st.inv) item.display = show.has(item.uid);
   }
 

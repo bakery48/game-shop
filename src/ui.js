@@ -509,7 +509,7 @@
       r.insertCell().appendChild(toggle(item.protect, v => { E.setProtect(st, item.uid, v); render(); }));
       r.insertCell().appendChild(toggle(item.markdown, v => { E.setMarkdown(st, item.uid, v); render(); }));
     }
-    $('invNote').textContent = `${st.inv.length} / ${st.cfg.shelfSlots}枠｜非売品は客も自動売上も手を出しません`;
+    $('invNote').textContent = `${st.inv.length} / ${E.shelfCap(st)}枠｜非売品は客も自動売上も手を出しません`;
     $('selNote').textContent = selected.size ? `${selected.size}点を選択中` : '';
   }
 

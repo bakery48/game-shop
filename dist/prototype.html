@@ -2599,6 +2599,12 @@ pre {
       charm:       { name: '愛想',     from: null, pending: true,
                      desc: '評判が上がるとき、上がり幅に上乗せされる（下がるときは変わらない）',
                      repGain: 0.35 },
+      upsell:      { name: 'もう一声', from: null, pending: true,
+                     desc: '指名客が2本目にも手を伸ばしやすくなる。手番は使わない',
+                     secondBuy: 0.25 },
+      shelving:    { name: '棚づくり', from: null, pending: true,
+                     desc: '同じ広さの店に、あと5本ぶん仕舞える（並べる枠ではなく、抱えられる枠）',
+                     shelfSlots: 5 },
     },
 
     /**
@@ -2987,15 +2993,19 @@ pre {
   const displayed = st => st.inv.filter(i => i.display && !i.junk);
   /** 実際に売れる在庫（陳列中かつ非売品でない） */
   const forSale = st => st.inv.filter(i => i.display && !i.junk && !i.protect);
-  const freeSlots = st => st.cfg.shelfSlots - st.inv.length;
-  const freeDisplay = st => st.cfg.displaySlots - st.inv.filter(i => i.display).length;
+  /** いま抱えられる本数。設備で増えた枠に、交渉術のぶんを足す */
+  const shelfCap = st => st.cfg.shelfSlots + skill(st, 'shelfSlots');
+  const freeSlots = st => shelfCap(st) - st.inv.length;
+  /** いま並べられる本数。設備で増えた枠に、交渉術のぶんを足す */
+  const displayCap = st => st.cfg.displaySlots + skill(st, 'displaySlots');
+  const freeDisplay = st => displayCap(st) - st.inv.filter(i => i.display).length;
   const countOf = (st, titleId) => st.inv.filter(i => i.titleId === titleId).length;
 
   function stats(st) {
     const owned = ownedIds(st);
     return {
       week: st.week, half: st.half, cash: st.cash, debt: st.debt, promo: st.promo,
-      inventory: st.inv.length, slots: st.cfg.shelfSlots, displaySlots: st.cfg.displaySlots,
+      inventory: st.inv.length, slots: shelfCap(st), displaySlots: displayCap(st),
       reputation: Math.round(st.reputation * 10) / 10,
       junk: st.inv.filter(i => i.junk).length,
       displayed: displayed(st).length,
@@ -3395,7 +3405,7 @@ pre {
         log(st, 'sell', `「${t.name}」を売った`, c.offer);
 
         // ついで買い: 陳列中の安い一本を追加で買っていく
-        if (st.rng() < st.cfg.buyerSecondItemChance) {
+        if (st.rng() < st.cfg.buyerSecondItemChance + skill(st, 'secondBuy')) {
           const cheap = forSale(st).filter(i => priceOf(st, i) <= 3000);
           if (cheap.length) {
             const extra = rWeighted(st.rng, cheap.map(i => [i, demandOf(st, i)]));
@@ -3804,7 +3814,7 @@ pre {
     }).length;
     let d = c.gain.weeklyDrift;
     // 棚がどれだけ埋まっているか。品揃えのある店は客足が戻る
-    d += Math.min(1, shelf.length / Math.max(1, st.cfg.displaySlots)) * c.gain.shelfFull;
+    d += Math.min(1, shelf.length / Math.max(1, displayCap(st))) * c.gain.shelfFull;
     d += Math.min(6, good + kept * 0.5) * c.gain.rareOnShelf;
     d += Math.min(10, junk) * c.gain.junkOnShelf;
     if (!forSale(st).length) d += c.gain.emptyShelf;
@@ -4088,7 +4098,7 @@ pre {
       memoryOff: Object.keys(st.memoryOff || {}),
       cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
     forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
-    setMemory, activeMemories, setSkill, skillOn,
+    setMemory, activeMemories, setSkill, skillOn, displayCap, shelfCap,
     condLabel, condMult, boostTier, boostCond,
     /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
     skillKnownNote: (st, e) =>
@@ -4196,7 +4206,7 @@ pre {
     }
     willing.sort((a, b) => E.demandOf(st, b) * E.priceOf(st, b) - E.demandOf(st, a) * E.priceOf(st, a));
     // 非売品は保管に回し、陳列枠は売り物だけで埋める
-    const show = new Set(willing.slice(0, cfg.displaySlots).map(i => i.uid));
+    const show = new Set(willing.slice(0, E.displayCap(st)).map(i => i.uid));
     for (const item of st.inv) item.display = show.has(item.uid);
   }
 
@@ -4928,7 +4938,7 @@ pre {
       r.insertCell().appendChild(toggle(item.protect, v => { E.setProtect(st, item.uid, v); render(); }));
       r.insertCell().appendChild(toggle(item.markdown, v => { E.setMarkdown(st, item.uid, v); render(); }));
     }
-    $('invNote').textContent = `${st.inv.length} / ${st.cfg.shelfSlots}枠｜非売品は客も自動売上も手を出しません`;
+    $('invNote').textContent = `${st.inv.length} / ${E.shelfCap(st)}枠｜非売品は客も自動売上も手を出しません`;
     $('selNote').textContent = selected.size ? `${selected.size}点を選択中` : '';
   }
 

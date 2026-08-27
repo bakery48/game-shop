@@ -585,9 +585,9 @@ function playChecked(opts) {
   const violations = [];
   while (!st.ended && guard++ < 500) {
     P.playTurn(st);
-    if (st.inv.length > st.cfg.shelfSlots) violations.push(`在庫${st.inv.length} > 棚枠${st.cfg.shelfSlots}`);
-    if (E.displayed(st).length > st.cfg.displaySlots) {
-      violations.push(`陳列${E.displayed(st).length} > 陳列枠${st.cfg.displaySlots}`);
+    if (st.inv.length > E.shelfCap(st)) violations.push(`在庫${st.inv.length} > 棚枠${E.shelfCap(st)}`);
+    if (E.displayed(st).length > E.displayCap(st)) {
+      violations.push(`陳列${E.displayed(st).length} > 陳列枠${E.displayCap(st)}`);
     }
     if (st.cash < 0) violations.push(`残高が負 ${st.cash}`);
     if (E.ownedIds(st).size > st.registered.size) violations.push('所持数が登録数を超えた');
@@ -1094,6 +1094,30 @@ check('「探し物」は顔つなぎから独立している', () => {
   E.setSkill(st, 'hunting', true);
   assert(E.skillOn(st, 'hunting'), '入らない');
   return `未所持の偏り ${c.hunting.unownedBias} は探し物だけが持つ`;
+});
+check('「棚づくり」は抱える枠だけを増やす', () => {
+  // 陳列枠（安く早く売る枠）を増やすと単価が落ちて逆効果だった。増やすのは保管のほう
+  const c = E.BALANCE.skills.shelving;
+  assert(c.shelfSlots > 0, '保管枠が増えない');
+  assert(!c.displaySlots, '陳列枠まで増やしている');
+  const st = E.createGame({ seed: 91 });
+  const shelf0 = E.shelfCap(st), disp0 = E.displayCap(st);
+  E.setSkill(st, 'shelving', true);
+  assert(E.shelfCap(st) === shelf0 + c.shelfSlots, `保管枠が ${shelf0} → ${E.shelfCap(st)}`);
+  assert(E.displayCap(st) === disp0, `陳列枠まで ${disp0} → ${E.displayCap(st)}`);
+  E.setSkill(st, 'shelving', false);
+  assert(E.shelfCap(st) === shelf0, '切っても枠が戻らない');
+  return `保管 ${shelf0} → ${shelf0 + c.shelfSlots}／陳列 ${disp0} のまま`;
+});
+check('「もう一声」はついで買いの確率だけを動かす', () => {
+  const st = E.createGame({ seed: 92 });
+  const base = st.cfg.buyerSecondItemChance;
+  const c = E.BALANCE.skills.upsell;
+  assert(c.secondBuy > 0, 'ついで買いが増えない');
+  assert(Object.keys(c).filter(k => !['name','from','pending','desc'].includes(k)).length === 1,
+    'ほかの効果が混ざっている');
+  assert(base + c.secondBuy <= 1, `確率が1を超える（${base} + ${c.secondBuy}）`);
+  return `${(base * 100).toFixed(0)}% → ${((base + c.secondBuy) * 100).toFixed(0)}%`;
 });
 check('「目星」でロットの区分が上がる', () => {
   const st = E.createGame({ seed: 61 });
