@@ -1,0 +1,154 @@
+<title>クロスロード 台本机</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+1+Code:wght@400;500;700&display=swap">
+<style>
+/* ── 配色。プロトタイプ（dist/prototype.html）と同じトークンを使う ───── */
+:root {
+  --paper:#E4E1D6; --panel:#F2F0E8; --sunk:#EAE7DC; --field:#FBFAF6;
+  --ink:#23221B; --sub:#6D6858; --rule:#C6C0AE; --rule-soft:#DAD5C6;
+  --accent:#B8431C; --accent-ink:#FFF8F2;
+  --good:#2E6738; --gold:#8A6412; --info:#245B79;
+  --shadow:0 1px 0 rgba(35,34,27,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E; --field:#12151A;
+    --ink:#DDE2DE; --sub:#8A9189; --rule:#333941; --rule-soft:#272C33;
+    --accent:#E2703F; --accent-ink:#1A0E07;
+    --good:#78C489; --gold:#D2A84A; --info:#71ABCC;
+    --shadow:0 1px 0 rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E; --field:#12151A;
+  --ink:#DDE2DE; --sub:#8A9189; --rule:#333941; --rule-soft:#272C33;
+  --accent:#E2703F; --accent-ink:#1A0E07;
+  --good:#78C489; --gold:#D2A84A; --info:#71ABCC;
+  --shadow:0 1px 0 rgba(0,0,0,.4);
+}
+
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--paper); color:var(--ink); overflow-wrap:anywhere;
+  font:14px/1.7 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
+  font-variant-numeric:tabular-nums;
+}
+.pixel { font-family:"DotGothic16",monospace; font-weight:400; letter-spacing:.1em; }
+
+/* ── 上の固定バー ───────────────────────────────────────── */
+header {
+  position:sticky; top:0; z-index:20; background:var(--panel);
+  border-bottom:1px solid var(--rule); box-shadow:var(--shadow);
+  display:flex; flex-wrap:wrap; gap:8px 14px; align-items:baseline;
+  padding:9px 14px;
+}
+header h1 { font-family:"DotGothic16",monospace; font-weight:400; font-size:18px; margin:0; letter-spacing:.06em; }
+header .lede { font-size:11.5px; color:var(--sub); }
+header .grow { flex:1 1 auto; }
+#dirty { font-size:12px; }
+
+/* ── 2枚の面 ───────────────────────────────────────────── */
+.wrap { display:grid; grid-template-columns:minmax(0,260px) minmax(0,1fr); gap:0; align-items:start; }
+nav {
+  position:sticky; top:47px; max-height:calc(100vh - 47px); min-height:calc(100vh - 47px); overflow:auto;
+  border-right:1px solid var(--rule); background:var(--panel); padding:10px 10px 24px;
+  display:flex; flex-direction:column; gap:8px;
+}
+main { padding:12px 14px 60px; min-width:0; display:flex; flex-direction:column; gap:10px; }
+
+.seg { display:grid; grid-template-columns:1fr 1fr; border:1px solid var(--rule); }
+.seg button { border:0; border-right:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+.seg button:nth-child(2n) { border-right:0; }
+.seg button:nth-last-child(-n+2) { border-bottom:0; }
+
+button {
+  font-family:"DotGothic16",monospace; font-size:13px; letter-spacing:.06em; line-height:1.5;
+  padding:6px 11px; border:1px solid var(--rule); background:var(--panel); color:var(--ink);
+  border-radius:0; cursor:pointer;
+}
+button:hover:not(:disabled) { background:var(--sunk); border-color:var(--sub); }
+button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+button:disabled { opacity:.35; cursor:default; }
+button.on { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+button.ghost { background:transparent; font-size:11.5px; padding:3px 8px; }
+
+input[type=search], input[type=text] {
+  font:13px/1.5 inherit; width:100%; padding:6px 8px; border-radius:0;
+  background:var(--field); color:var(--ink); border:1px solid var(--rule);
+}
+input:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+label.check { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--sub); }
+input[type=checkbox] { accent-color:var(--accent); }
+
+/* ── 索引 ───────────────────────────────────────────────── */
+.idx { display:flex; flex-direction:column; }
+.idx button {
+  text-align:left; border:0; border-bottom:1px solid var(--rule-soft);
+  background:transparent; padding:6px 8px; font-size:12.5px; letter-spacing:.02em;
+  display:flex; gap:8px; align-items:baseline;
+}
+.idx button .n { color:var(--sub); font-size:11px; margin-left:auto; }
+.idx button.on { background:var(--sunk); box-shadow:inset 3px 0 0 var(--accent); }
+.idx button.edited { box-shadow:inset 3px 0 0 var(--gold); }
+.idx button.on.edited { box-shadow:inset 3px 0 0 var(--accent), inset 6px 0 0 var(--gold); }
+
+/* ── 編集カード ─────────────────────────────────────────── */
+.group { background:var(--panel); border:1px solid var(--rule); box-shadow:var(--shadow); }
+.group > h2 {
+  font-family:"DotGothic16",monospace; font-weight:400; font-size:13px; letter-spacing:.12em;
+  margin:0; padding:8px 12px; border-bottom:1px solid var(--rule); background:var(--sunk);
+  display:flex; gap:12px; align-items:baseline; flex-wrap:wrap;
+}
+.group > h2 .sub { font-family:inherit; font-size:11px; color:var(--sub); letter-spacing:.04em; }
+.rows { display:flex; flex-direction:column; }
+.f { border-bottom:1px solid var(--rule-soft); padding:8px 12px; display:flex; flex-direction:column; gap:5px; }
+.f:last-child { border-bottom:0; }
+.f.edited { border-left:3px solid var(--gold); padding-left:9px; }
+.f .top { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+.f .name { font-family:"DotGothic16",monospace; font-size:11px; letter-spacing:.1em; color:var(--sub); }
+.f .count { margin-left:auto; font-size:11px; color:var(--sub); }
+textarea {
+  font:13.5px/1.85 inherit; width:100%; padding:7px 9px; resize:vertical; min-height:38px;
+  background:var(--field); color:var(--ink); border:1px solid var(--rule); border-radius:0;
+}
+.f.edited textarea { border-color:var(--gold); }
+.was { font-size:11.5px; color:var(--sub); border-left:2px solid var(--rule); padding-left:8px; }
+
+/* ── 検査 ───────────────────────────────────────────────── */
+.flag { font-size:11.5px; display:flex; gap:6px; align-items:baseline; }
+.flag b { font-family:"DotGothic16",monospace; font-weight:400; letter-spacing:.08em; }
+.flag.bad { color:var(--accent); }
+.flag.warn { color:var(--gold); }
+.flag.ok { color:var(--good); }
+#checks { display:flex; flex-direction:column; gap:3px; }
+
+/* ── 書き出し ───────────────────────────────────────────── */
+#out textarea { min-height:220px; font-size:11.5px; line-height:1.5; }
+.note { font-size:12px; color:var(--sub); }
+.note code { background:var(--sunk); padding:1px 5px; border:1px solid var(--rule-soft); }
+
+@media (max-width:860px) {
+  .wrap { grid-template-columns:minmax(0,1fr); }
+  nav { position:static; max-height:none; border-right:0; border-bottom:1px solid var(--rule); }
+}
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+
+<header>
+  <h1>クロスロード 台本机</h1>
+  <span class="lede">ゲーム中の文章をここで直して、JSONを書き戻します</span>
+  <span class="grow"></span>
+  <span id="dirty" class="sub">変更なし</span>
+  <button id="btnRevertAll" class="ghost">全部を元に戻す</button>
+</header>
+
+<div class="wrap">
+  <nav>
+    <div class="seg" id="tabs"></div>
+    <input type="search" id="q" placeholder="本文・名前で絞り込む">
+    <label class="check"><input type="checkbox" id="onlyEdited"> 変更したものだけ</label>
+    <div class="idx" id="index"></div>
+  </nav>
+  <main id="main"></main>
+</div>

@@ -1,284 +1,161 @@
-<title>棚を埋める50週</title>
+<title>クロスロード 台本机</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+1+Code:wght@400;500;700&display=swap">
 <style>
-/* ── 配色トークン。既定は「値札の貼られた藁半紙」 ───────────────── */
+/* ── 配色。プロトタイプ（dist/prototype.html）と同じトークンを使う ───── */
 :root {
-  --paper:#E4E1D6; --panel:#F2F0E8; --sunk:#EAE7DC;
+  --paper:#E4E1D6; --panel:#F2F0E8; --sunk:#EAE7DC; --field:#FBFAF6;
   --ink:#23221B; --sub:#6D6858; --rule:#C6C0AE; --rule-soft:#DAD5C6;
   --accent:#B8431C; --accent-ink:#FFF8F2;
-  --good:#2E6738; --info:#245B79; --gold:#8A6412; --violet:#7A2E56;
+  --good:#2E6738; --gold:#8A6412; --info:#245B79;
   --shadow:0 1px 0 rgba(35,34,27,.06);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E;
+    --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E; --field:#12151A;
     --ink:#DDE2DE; --sub:#8A9189; --rule:#333941; --rule-soft:#272C33;
     --accent:#E2703F; --accent-ink:#1A0E07;
-    --good:#78C489; --info:#71ABCC; --gold:#D2A84A; --violet:#D986AE;
+    --good:#78C489; --gold:#D2A84A; --info:#71ABCC;
     --shadow:0 1px 0 rgba(0,0,0,.4);
   }
 }
 :root[data-theme="dark"] {
-  --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E;
+  --paper:#14161A; --panel:#1C1F24; --sunk:#171A1E; --field:#12151A;
   --ink:#DDE2DE; --sub:#8A9189; --rule:#333941; --rule-soft:#272C33;
   --accent:#E2703F; --accent-ink:#1A0E07;
-  --good:#78C489; --info:#71ABCC; --gold:#D2A84A; --violet:#D986AE;
+  --good:#78C489; --gold:#D2A84A; --info:#71ABCC;
   --shadow:0 1px 0 rgba(0,0,0,.4);
 }
 
 * { box-sizing:border-box; }
 body {
-  margin:0; padding:14px 16px 40px; background:var(--paper); color:var(--ink);
-  overflow-wrap:anywhere;
-  font:14px/1.6 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
+  margin:0; background:var(--paper); color:var(--ink); overflow-wrap:anywhere;
+  font:14px/1.7 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
   font-variant-numeric:tabular-nums;
 }
-.shell { max-width:1440px; margin:0 auto; }
+.pixel { font-family:"DotGothic16",monospace; font-weight:400; letter-spacing:.1em; }
 
-/* ── 見出し ─────────────────────────────────────────────── */
-.masthead { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 16px; margin-bottom:12px; }
-.masthead h1 {
-  font-family:"DotGothic16",monospace; font-weight:400; font-size:23px;
-  margin:0; letter-spacing:.06em; text-wrap:balance;
+/* ── 上の固定バー ───────────────────────────────────────── */
+header {
+  position:sticky; top:0; z-index:20; background:var(--panel);
+  border-bottom:1px solid var(--rule); box-shadow:var(--shadow);
+  display:flex; flex-wrap:wrap; gap:8px 14px; align-items:baseline;
+  padding:9px 14px;
 }
-.masthead .tag {
-  font-family:"DotGothic16",monospace; font-size:12px; color:var(--sub); letter-spacing:.14em;
-}
+header h1 { font-family:"DotGothic16",monospace; font-weight:400; font-size:18px; margin:0; letter-spacing:.06em; }
+header .lede { font-size:11.5px; color:var(--sub); }
+header .grow { flex:1 1 auto; }
+#dirty { font-size:12px; }
 
-/* ── HUD ────────────────────────────────────────────────── */
-#stat {
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
-  background:var(--panel); border:1px solid var(--rule); box-shadow:var(--shadow);
+/* ── 2枚の面 ───────────────────────────────────────────── */
+.wrap { display:grid; grid-template-columns:minmax(0,260px) minmax(0,1fr); gap:0; align-items:start; }
+nav {
+  position:sticky; top:47px; max-height:calc(100vh - 47px); min-height:calc(100vh - 47px); overflow:auto;
+  border-right:1px solid var(--rule); background:var(--panel); padding:10px 10px 24px;
+  display:flex; flex-direction:column; gap:8px;
 }
-#stat > div {
-  display:flex; flex-direction:column; gap:1px; overflow:hidden;
-  padding:7px 11px; border-right:1px solid var(--rule-soft); min-width:0;
-}
-#stat > div:last-child { border-right:0; }
-#stat .sub {
-  font-family:"DotGothic16",monospace; font-size:11px; letter-spacing:.1em;
-  color:var(--sub); white-space:nowrap;
-}
-#stat b { font-weight:500; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+main { padding:12px 14px 60px; min-width:0; display:flex; flex-direction:column; gap:10px; }
 
-/* ── パネル ─────────────────────────────────────────────── */
-.grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:12px; margin-top:12px; align-items:start; }
-.full { grid-column:1 / -1; }
-.panel { background:var(--panel); border:1px solid var(--rule); box-shadow:var(--shadow); }
-.panel > h2 {
-  font-family:"DotGothic16",monospace; font-weight:400; font-size:13px; letter-spacing:.12em;
-  margin:0; padding:7px 11px; border-bottom:1px solid var(--rule);
-  background:var(--sunk); display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;
-}
-.panel > h2 .sub { font-family:inherit; font-size:11px; color:var(--sub); letter-spacing:.06em; }
-.body { padding:10px 11px; }
+.seg { display:grid; grid-template-columns:1fr 1fr; border:1px solid var(--rule); }
+.seg button { border:0; border-right:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+.seg button:nth-child(2n) { border-right:0; }
+.seg button:nth-last-child(-n+2) { border-bottom:0; }
 
-/* ── 操作 ───────────────────────────────────────────────── */
-.row { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
-.row + .row { margin-top:7px; }
 button {
-  font-family:"DotGothic16",monospace; font-size:13px; letter-spacing:.06em;
-  padding:5px 13px; border:1px solid var(--rule); background:var(--panel); color:var(--ink);
-  cursor:pointer; border-radius:0; line-height:1.4;
+  font-family:"DotGothic16",monospace; font-size:13px; letter-spacing:.06em; line-height:1.5;
+  padding:6px 11px; border:1px solid var(--rule); background:var(--panel); color:var(--ink);
+  border-radius:0; cursor:pointer;
 }
 button:hover:not(:disabled) { background:var(--sunk); border-color:var(--sub); }
 button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 button:disabled { opacity:.35; cursor:default; }
-button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-button.primary:hover:not(:disabled) { filter:brightness(1.08); background:var(--accent); }
-input[type=number] {
-  font:inherit; width:96px; padding:4px 6px; background:var(--panel); color:var(--ink);
-  border:1px solid var(--rule); border-radius:0;
+button.on { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+button.ghost { background:transparent; font-size:11.5px; padding:3px 8px; }
+
+input[type=search], input[type=text] {
+  font:13px/1.5 inherit; width:100%; padding:6px 8px; border-radius:0;
+  background:var(--field); color:var(--ink); border:1px solid var(--rule);
 }
+input:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+label.check { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--sub); }
 input[type=checkbox] { accent-color:var(--accent); }
-select {
-  font:13px/1.4 "M PLUS 1 Code","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,monospace;
-  padding:4px 6px; background:var(--panel); color:var(--ink);
-  border:1px solid var(--rule); border-radius:0; max-width:100%;
+
+/* ── 索引 ───────────────────────────────────────────────── */
+.idx { display:flex; flex-direction:column; }
+.idx button {
+  text-align:left; border:0; border-bottom:1px solid var(--rule-soft);
+  background:transparent; padding:6px 8px; font-size:12.5px; letter-spacing:.02em;
+  display:flex; gap:8px; align-items:baseline;
 }
-select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-label { display:inline-flex; gap:5px; align-items:center; font-size:13px; }
+.idx button .n { color:var(--sub); font-size:11px; margin-left:auto; }
+.idx button.on { background:var(--sunk); box-shadow:inset 3px 0 0 var(--accent); }
+.idx button.edited { box-shadow:inset 3px 0 0 var(--gold); }
+.idx button.on.edited { box-shadow:inset 3px 0 0 var(--accent), inset 6px 0 0 var(--gold); }
 
-/* ── 客・行動のカード ────────────────────────────────────── */
-.card { border:1px solid var(--rule-soft); border-left:3px solid var(--accent); background:var(--sunk); padding:9px 11px; }
-.card.regular { border-left-color:var(--info); }
-.card.event { border-left-color:var(--gold); border-left-width:5px; background:var(--panel); }
-.card.event .detail-body { margin:4px 0 2px; }
-.card + .card { margin-top:8px; }
-.card .who {
-  font-family:"DotGothic16",monospace; font-size:12px; letter-spacing:.1em;
-  color:var(--sub); margin-bottom:2px;
+/* ── 編集カード ─────────────────────────────────────────── */
+.group { background:var(--panel); border:1px solid var(--rule); box-shadow:var(--shadow); }
+.group > h2 {
+  font-family:"DotGothic16",monospace; font-weight:400; font-size:13px; letter-spacing:.12em;
+  margin:0; padding:8px 12px; border-bottom:1px solid var(--rule); background:var(--sunk);
+  display:flex; gap:12px; align-items:baseline; flex-wrap:wrap;
 }
-.card .row { margin-top:8px; }
-
-/* ── 表 ─────────────────────────────────────────────────── */
-.scroll { max-height:330px; overflow:auto; overflow-x:auto; border-top:1px solid var(--rule); max-width:100%; }
-table { border-collapse:collapse; width:100%; font-size:12.5px; }
-th, td { border-bottom:1px solid var(--rule-soft); padding:3px 8px; text-align:left; white-space:nowrap; }
-th {
-  position:sticky; top:0; z-index:1; background:var(--sunk); color:var(--sub);
-  font-family:"DotGothic16",monospace; font-weight:400; font-size:11px; letter-spacing:.08em;
-  border-bottom:1px solid var(--rule);
+.group > h2 .sub { font-family:inherit; font-size:11px; color:var(--sub); letter-spacing:.04em; }
+.rows { display:flex; flex-direction:column; }
+.f { border-bottom:1px solid var(--rule-soft); padding:8px 12px; display:flex; flex-direction:column; gap:5px; }
+.f:last-child { border-bottom:0; }
+.f.edited { border-left:3px solid var(--gold); padding-left:9px; }
+.f .top { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+.f .name { font-family:"DotGothic16",monospace; font-size:11px; letter-spacing:.1em; color:var(--sub); }
+.f .count { margin-left:auto; font-size:11px; color:var(--sub); }
+textarea {
+  font:13.5px/1.85 inherit; width:100%; padding:7px 9px; resize:vertical; min-height:38px;
+  background:var(--field); color:var(--ink); border:1px solid var(--rule); border-radius:0;
 }
-td.num, th.num { text-align:right; }
-tbody tr:hover td { background:var(--sunk); }
+.f.edited textarea { border-color:var(--gold); }
+.was { font-size:11.5px; color:var(--sub); border-left:2px solid var(--rule); padding-left:8px; }
 
-/* ── 状態の色 ───────────────────────────────────────────── */
-.sub  { color:var(--sub); }
-.warn { color:var(--accent); font-weight:700; }
-.ok   { color:var(--good); font-weight:500; }
-.tier-common { color:var(--sub); }
-.tier-mid    { color:var(--info); }
-.tier-rare   { color:var(--gold);   font-weight:700; }
-.tier-ultra  { color:var(--violet); font-weight:700; }
+/* ── 検査 ───────────────────────────────────────────────── */
+.flag { font-size:11.5px; display:flex; gap:6px; align-items:baseline; }
+.flag b { font-family:"DotGothic16",monospace; font-weight:400; letter-spacing:.08em; }
+.flag.bad { color:var(--accent); }
+.flag.warn { color:var(--gold); }
+.flag.ok { color:var(--good); }
+#checks { display:flex; flex-direction:column; gap:3px; }
 
-/* ── ログ ───────────────────────────────────────────────── */
-#log { font-size:12px; max-height:330px; overflow:auto; padding:6px 11px; }
-#log div { padding:2px 0; border-bottom:1px dotted var(--rule-soft); }
-#log div:last-child { border-bottom:0; }
+/* ── 書き出し ───────────────────────────────────────────── */
+#out textarea { min-height:220px; font-size:11.5px; line-height:1.5; }
+.note { font-size:12px; color:var(--sub); }
+.note code { background:var(--sunk); padding:1px 5px; border:1px solid var(--rule-soft); }
 
-.detail-title { font-size:17px; font-weight:700; margin-bottom:2px; text-wrap:balance; }
-.detail-meta { display:flex; flex-wrap:wrap; gap:6px 14px; margin:8px 0 6px; }
-.chip { display:inline-flex; gap:4px; align-items:baseline;
-        border:1px solid var(--rule-soft); background:var(--sunk); padding:1px 8px; }
-.detail-body { margin:6px 0 8px; max-width:68ch; line-height:1.85; }
-
-pre {
-  font:12.5px/1.7 "M PLUS 1 Code",monospace; margin:0; padding:10px 11px;
-  background:var(--sunk); overflow-x:auto; color:var(--ink);
-}
-.note { font-size:12px; color:var(--sub); margin-top:10px; }
-.note a { color:var(--info); }
-
-/* ── 狭い画面 ───────────────────────────────────────────── */
-@media (max-width:900px) {
-  /* minmax(0,…) を外すと min-content が下限になり、表の nowrap が画面を押し広げる */
-  .grid { grid-template-columns:minmax(0,1fr); }
-}
-@media (max-width:560px) {
-  body { padding:10px 10px 32px; font-size:13.5px; }
-  .masthead h1 { font-size:19px; }
-  /* 指で押せる大きさに。狭いほど1行あたりの数を減らす */
-  button { padding:8px 12px; font-size:13px; }
-  input[type=number] { width:72px; padding:6px; }
-  /* 2列。1列あたりを広く取って「29 / 200（14%）」が折り返さないようにする */
-  #stat { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
-  #stat > div { padding:6px 8px; }
-  /* 狭い画面では省略記号より折り返しのほうが読める（「29 / 200 (1…」を避ける） */
-  #stat b { font-size:14px; white-space:normal; overflow:visible; text-overflow:clip; }
-  #stat .sub { white-space:normal; }
-  .body { padding:9px 9px; }
-  .card { padding:8px 9px; }
-  .scroll { max-height:44vh; }
-  /* 一覧から選ぶ類はいっぱいに広げる。狭いと選択肢が読めない */
-  select[multiple], select { max-width:100%; }
-  select[multiple] { width:100%; }
-  #log { max-height:38vh; }
-  table { font-size:12px; }
-  th, td { padding:4px 6px; }
+@media (max-width:860px) {
+  .wrap { grid-template-columns:minmax(0,1fr); }
+  nav { position:static; max-height:none; border-right:0; border-bottom:1px solid var(--rule); }
 }
 @media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
 </style>
 
-<div class="shell">
-  <div class="masthead">
-    <h1>棚を埋める50週</h1>
-    <span class="tag">中古ゲームショップ経営＋架空ソフト収集／資金カーブ検証用プロトタイプ</span>
-  </div>
+<header>
+  <h1>クロスロード 台本机</h1>
+  <span class="lede">ゲーム中の文章をここで直して、JSONを書き戻します</span>
+  <span class="grow"></span>
+  <span id="dirty" class="sub">変更なし</span>
+  <button id="btnRevertAll" class="ghost">全部を元に戻す</button>
+</header>
 
-  <div id="stat"></div>
-
-  <div class="grid">
-    <div class="panel full">
-      <div class="body">
-        <div class="row">
-          <button id="btnTurn">1ターン自動</button>
-          <button id="btnWeek">1週自動</button>
-          <button id="btnAll">最後まで自動</button>
-          <button id="btnNew">新しく始める</button>
-          <button id="btnCarry">次の周へ（図鑑を引き継ぐ）</button>
-          <label class="sub">範囲
-            <select id="weeks">
-              <option value="10">αテスト版（10週）</option>
-              <option value="50" selected>50週フル</option>
-            </select>
-          </label>
-          <label class="sub">seed <input type="number" id="seed" value="1"></label>
-          <button id="btnSim">シミュレーション100回</button>
-          <label class="sub" title="常連の雑談や、判断の要らないイベントを自動で進めます。内容はログに残ります"><input type="checkbox" id="skipTalk"> 会話を飛ばす</label>
-        </div>
-        <div class="row" id="skillRow">
-          <span class="sub">交渉術</span>
-        </div>
-        <div class="sub" style="margin-top:4px">
-          検証用。覚えていない交渉術も入れられます（★は入手方法が未定のもの）
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h2>店内</h2>
-      <div class="body" id="phase"></div>
-    </div>
-
-    <div class="panel">
-      <h2>ログ</h2>
-      <div id="log"></div>
-    </div>
-
-    <div class="panel">
-      <h2>常連 <span class="sub">来店を重ねるとイベントが起きる</span></h2>
-      <div class="scroll"><table id="regulars"></table></div>
-    </div>
-
-    <div class="panel">
-      <h2>ソフトの詳細</h2>
-      <div class="body" id="detail"></div>
-    </div>
-
-    <div class="panel full" id="simPanel" style="display:none">
-      <h2>自動シミュレーション結果 <span class="sub">100回まわした中央値</span></h2>
-      <pre id="simOut"></pre>
-    </div>
-
-    <div class="panel">
-      <h2>在庫 <span class="sub" id="invNote"></span></h2>
-      <div class="body">
-        <div class="row">
-          <button id="btnWholesale">選択した在庫を業者に卸す</button>
-          <span class="sub" id="selNote"></span>
-        </div>
-      </div>
-      <div class="scroll"><table id="inv"></table></div>
-    </div>
-
-    <div class="panel">
-      <h2>図鑑 <span class="sub" id="dexNote"></span><span class="sub">* は仮データ</span></h2>
-      <div class="body">
-        <div class="row"><label><input type="checkbox" id="dexMissing"> 未所持のみ表示</label></div>
-      </div>
-      <div class="scroll"><table id="dex"></table></div>
-    </div>
-  </div>
-
-  <p class="note">
-    仕様書 v0.1「10. プロトタイプの範囲」の検証用。見た目は表とボタンのみで、グラフィック・常連イベント・査定の詳細・評判は未実装です。
-    棚に並べた在庫は値札の額（相場の8割前後）で勝手に売れていきます。名指しで買いに来る客は値札に縛られず、相場かそれ以上を払います。
-    「非売品」に印を付けた在庫は、どちらも手を出しません。
-  </p>
+<div class="wrap">
+  <nav>
+    <div class="seg" id="tabs"></div>
+    <input type="search" id="q" placeholder="本文・名前で絞り込む">
+    <label class="check"><input type="checkbox" id="onlyEdited"> 変更したものだけ</label>
+    <div class="idx" id="index"></div>
+  </nav>
+  <main id="main"></main>
 </div>
 
 <script>
-'use strict';
-/* このファイルは build/gen-data.js が data/software.json から自動生成します。直接編集しないこと */
-(function (root, factory) {
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.SoftwareData = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-  return Object.assign({
+window.EditorData = {
+  software: {
   "$comment": "架空ソフトのマスターデータ。title / maker / genre / rating / details は手書きの原文。tier / base / year はプロトタイプ用に details の記述から起こした値で、自由に書き換えてよい。",
   "hardware": {
     "id": "sec",
@@ -2011,7 +1888,8 @@ pre {
       }
     }
   }
-}, {
+},
+  regulars: {
   "$comment": "常連キャラとイベント（仕様書 8 節）。events の at は『来店回数』のしきい値。data/software.json のタイトルと紐づいている。来客枠は1回ずつ一般客か常連かを抽選し、常連が当たる確率は評判に連動する。 skill を持つイベントは、既にその交渉術を覚えている周回では skillKnown のセリフに差し替わり、報酬が現金になる。 calls は常連が店主をどう呼ぶかで、主人公の年齢が漏れない呼称だけを使う（「おじいちゃん」「お兄さん」は禁止。子供の「おじさん」は25〜70歳を一括りにする呼び方なので、むしろ年齢を若く錯覚させる）。名前でも呼ばせない。 born は作中の現在（software.json の lore.present）から年齢を出すためのもの。UIには出さないこと——常連の年齢が並ぶと、そこから主人公の年齢が透ける。",
   "visitThresholds": [
     1,
@@ -2433,2965 +2311,406 @@ pre {
       ]
     }
   ]
-});
-});
-
+}
+};
 </script>
 <script>
 'use strict';
 /**
- * 架空ソフトカタログの生成。
- * 世界設定（ハード・メーカー）は仕様書 7 節の骨子のみを実装した仮データ。
- * 固定シードで生成するので、実行のたびに同じ150本が出る。
- */
-(function (root, factory) {
-  const data = (typeof module === 'object' && module.exports)
-    ? require('./software-data.js')
-    : root.SoftwareData;
-  const api = factory(data);
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.Catalog = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (DATA) {
-
-  // ---------------- 乱数（mulberry32） ----------------
-  function makeRng(seed) {
-    let s = seed >>> 0;
-    return function () {
-      s = (s + 0x6d2b79f5) >>> 0;
-      let t = s;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  const rInt = (rng, a, b) => a + Math.floor(rng() * (b - a + 1));
-  const rPick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
-  function rWeighted(rng, pairs) { // [[value, weight], ...]
-    let total = 0;
-    for (const p of pairs) total += p[1];
-    let x = rng() * total;
-    for (const p of pairs) { x -= p[1]; if (x <= 0) return p[0]; }
-    return pairs[pairs.length - 1][0];
-  }
-
-  // ---------------- 世界設定 ----------------
-  // 主力ハード。data/software.json の hardware がそのまま使われる
-  const HW = (DATA && DATA.hardware) || {
-    id: 'sec', name: 'SEC', fullName: 'スーパーエレクトリックコンピュータ',
-    nickname: 'スーエレ', span: [1990, 1998],
-  };
-  const HARDWARE = [{ id: HW.id, name: HW.name, kind: 'カセット式据置', span: HW.span }];
-
-  const MAKERS = [
-    { id: 'ohtori',    name: '大鳥電機',           genres: ['RPG', 'SLG', 'AVG'], rarity: 0.8, trait: '老舗の大手。手堅いが冒険はしない' },
-    { id: 'cosmo',     name: 'コスモウェーブ',     genres: ['STG', 'ACT'],        rarity: 1.1, trait: 'アーケード出身。理不尽な難度で知られる' },
-    { id: 'jumbo',     name: 'ジャンボソフト',     genres: ['AVG', 'ACT', 'TBL'], rarity: 0.5, trait: '年に20本出す量産メーカー。中身は推して知るべし' },
-    { id: 'ginrei',    name: '銀嶺スタジオ',       genres: ['AVG', 'RPG'],        rarity: 1.2, trait: '文芸志向。テキスト量だけは一級品' },
-    { id: 'tiger',     name: 'タイガーワークス',   genres: ['FTG', 'ACT'],        rarity: 1.0, trait: '格闘ゲーム専門。移植の出来にムラがある' },
-    { id: 'penguin',   name: 'ペンギン企画',       genres: ['PZL', 'SPT'],        rarity: 0.7, trait: '子供向け。教育ソフトも手がける' },
-    { id: 'kurokawa',  name: '黒川インタラクティブ', genres: ['RPG', 'AVG'],      rarity: 2.6, until: 1997, trait: '1997年に倒産。末期の出荷数はごくわずか' },
-    { id: 'thunder',   name: 'サンダーバレー',     genres: ['RCG', 'SPT'],        rarity: 0.9, trait: 'レースとスポーツ一筋' },
-    { id: 'hoshikuzu', name: '星屑ソフトウェア',   genres: ['SLG', 'PZL', 'AVG'], rarity: 1.8, trait: '実験作しか作らない。一部に熱狂的な信者がいる' },
-  ];
-
-  const GENRE_LABEL = {
-    RPG: 'RPG', STG: 'シューティング', AVG: 'アドベンチャー', ACT: 'アクション',
-    SLG: 'シミュレーション', PZL: 'パズル', SPT: 'スポーツ', RCG: 'レース',
-    FTG: '対戦格闘', TBL: 'テーブル',
-  };
-
-  const CORES = {
-    RPG: ['クリスタルオーダー', 'ドラグーンサーガ', '精霊記', 'ルミナスクエスト', '古代王の指輪', '幻想大陸', 'エレメンタルテイル', '聖剣ロマンシア', '天空の系譜', 'ヴァルハラ戦記', '黄昏の塔', '流浪のグリモア'],
-    STG: ['コスモファイター', 'ヴァルカン爆撃隊', 'ゼロシューター', '銀河突撃隊', 'サンダーレイド', 'メタルバレット', 'ネビュラウォーズ', '超弩級ガンナー', '蒼穹の弾幕'],
-    AVG: ['霧の館', '放課後探偵団', '消えた七日間', '雨宿りの記憶', '港町殺人事件', '夜想曲', '見知らぬ来訪者', '十三時の電話', '海辺のノート'],
-    ACT: ['忍者疾風伝', 'ロックボーイ', '鋼鉄のジャック', 'ジャンプマニア', '大冒険パンチ', 'リトルヒーロー', '暴走メカニクス'],
-    SLG: ['戦国覇道', '惑星開拓記', '鉄道王', '経営の達人', '都市計画1999', '大提督の海図', '牧場のいちねん'],
-    PZL: ['ぷちぷちパズル', 'ブロックランド', 'くるくるキューブ', 'おじゃまカプセル', '積み木の国'],
-    SPT: ['熱血野球', 'スーパーサッカー', '格闘バレー', '全日本柔道', 'パーフェクトゴルフ', '真夏の甲子園'],
-    RCG: ['ターボレーサー', '峠伝説', 'サーキットキング', 'ダートアタック', 'ナイトドライヴ'],
-    FTG: ['虎牙伝説', 'ファイターズギア', '鉄拳道', '武神列伝', 'ストリートブロウ', '拳王無双'],
-    TBL: ['麻雀道楽', '花札物語', '将棋名人', 'カジノパラダイス', '大貧民帝国'],
-  };
-
-  const PREFIX = ['', '', '', '', '新', 'ザ・', 'ネオ', 'スーパー', '真・', '超'];
-  const SUFFIX = ['', '', '', 'II', 'III', '外伝', 'DX', 'スペシャル', '完全版', 'R', 'ZERO', "'98"];
-
-  // 説明文（100〜150字を目安にした仮テキスト。ネタ枠を混ぜる）
-  const FLAVOR = {
-    RPG: ['王道の世界観だが、終盤のダンジョンだけ理不尽に長い。', 'エンカウント率が異常に高く、当時から苦情が多かった。', 'シナリオの評価は高いが、戦闘バランスが崩壊している。'],
-    STG: ['自機が大きく、当たり判定の話は今も語り草。', '二周目から敵弾が倍になる硬派な設計。', 'BGMだけが突出して評価され、サントラが本体より高い。'],
-    AVG: ['選択肢が実質一本道で、総当たりを強いられる。', '真相に辿り着くと画面が数秒暗転する演出が有名。', '当時としては異例の長文テキストで、容量の大半を占めた。'],
-    ACT: ['操作性が独特で、慣れるまでは苦行だが化ける。', '一面の難度が最も高いという逆転構成。', 'ジャンプの慣性が強く、初見では確実に落ちる。'],
-    SLG: ['一周に数十時間かかり、セーブ回数に制限がある。', '内政パートが緻密すぎて、戦闘は付け足しに見える。', '説明書を読まないと何も始まらない不親切設計。'],
-    PZL: ['単純だが中毒性が高く、店頭デモで人だかりができた。', '二人対戦モードの出来だけが妙に良い。', '後半の面はテストされていないと噂される。'],
-    SPT: ['選手名が実在しないが、能力値だけは妙にリアル。', '実況の語彙が四種類しかない。', '操作説明がなく、ボタンを総当たりする必要がある。'],
-    RCG: ['コースが三つしかないが、挙動の作り込みは本物。', 'BGMが一曲のループで、長時間プレイに向かない。', '当時最速を謳ったスクロールが売り。'],
-    FTG: ['家庭用移植で技が数個消えている。', '一部のキャラの性能が壊れており、大会で禁止された。', 'コマンド入力の受付が短く、上級者向け。'],
-    TBL: ['CPUの思考が異常に長い。', 'ルール説明が丁寧で、入門書代わりに使われた。', '隠しモードの存在が長らく都市伝説だった。'],
-  };
-
-  const RARITY_FLAVOR = {
-    common: ['どこのワゴンにも積まれていた一本。', '中古棚の常連で、値札はいつも三桁。'],
-    mid: ['そこそこ売れたが、完品はじわじわ減っている。', '中古市場では安定した動きを見せる。'],
-    rare: ['出荷数が少なく、状態の良い箱付きは滅多に出ない。', '雑誌の企画で取り上げられて以来、値が上がり続けている。'],
-    ultra: ['流通経路が特殊で、市場に出るのは年に数本。', '現存数は二桁とも言われ、取引はほぼ個人間で行われる。'],
-  };
-
-  const TIER_KEYS = ['common', 'mid', 'rare', 'ultra'];
-
-  // 希少度ごとの基礎需要（1ターンあたり指名されやすさ）
-  const DEMAND = { common: 1.0, mid: 0.78, rare: 0.52, ultra: 0.16 };
-
-  /**
-   * @param {object} tiers BALANCE.tiers（区分ごとの本数・相場帯）
-   * @param {number} total 生成本数（tiers の比率で按分する）
-   */
-  /** data/software.json の1件をカタログ形式に変換する */
-  /**
-   * 出荷本数。中古価格は「欲しがる人の数 ÷ 出回っている数」で決まるので、
-   * 相場が高いほど出回っていない。評価はその上に少しだけ乗る。
-   * 手書きのソフトは data/software.json の sales が優先される（本文と食い違わせないため）
-   */
-  const SALES_BAND = {
-    common: [40000, 1200000], mid: [25000, 400000],
-    rare: [4000, 80000], ultra: [400, 12000],
-  };
-  function salesFor(tierKey, base, rating, saleRange) {
-    const band = SALES_BAND[tierKey] || SALES_BAND.common;
-    const lo = Math.log(Math.max(1, saleRange[0]));
-    const hi = Math.log(Math.max(saleRange[0] + 1, saleRange[1]));
-    const price = Math.min(1, Math.max(0, (Math.log(Math.max(1, base)) - lo) / (hi - lo)));
-    const rate = Math.min(1, Math.max(0, ((rating || 3) - 1) / 4));
-    const p = 0.65 * (1 - price) + 0.35 * rate;
-    const v = Math.exp(Math.log(band[0]) + p * (Math.log(band[1]) - Math.log(band[0])));
-    if (v >= 100000) return Math.round(v / 10000) * 10000;
-    if (v >= 10000) return Math.round(v / 1000) * 1000;
-    if (v >= 1000) return Math.round(v / 100) * 100;
-    return Math.max(50, Math.round(v / 50) * 50);
-  }
-
-  function fromData(entry, id, tiers) {
-    const tier = tiers[entry.tier] ? entry.tier : 'common';
-    const t = tiers[tier];
-    return {
-      id, name: entry.title, core: entry.title,
-      hardware: HW.name, hardwareId: HW.id,
-      year: entry.year, maker: entry.maker, makerId: entry.maker,
-      genre: entry.genre, genreLabel: entry.genre,
-      tier, tierLabel: t.label,
-      base: entry.base,
-      sales: entry.sales || salesFor(tier, entry.base, entry.rating, t.sale),
-      buy: Math.round(entry.base * t.buyRatio / 100) * 100,
-      desc: entry.details,
-      rating: entry.rating,
-      authored: true,                       // 手書きデータ（自動生成の仮データと区別する）
-      // 評判が高いほど指名されやすい
-      demand: DEMAND[tier] * Math.pow(2000 / entry.base, 0.18) * (0.8 + (entry.rating || 3) / 10),
-    };
-  }
-
-  /**
-   * 発売年。一様乱数だとハードの寿命が平らになってしまうので、
-   * software.json の yearWeights（立ち上がり→山→末期）に沿って引く。
-   */
-  const YEAR_WEIGHTS = (DATA && DATA.hardware && DATA.hardware.yearWeights) || null;
-  function pickYear(rng, hw, until) {
-    const hi = Math.min(hw.span[1], until || 9999);
-    if (!YEAR_WEIGHTS) return rInt(rng, hw.span[0], hi);
-    const pool = [];
-    for (let y = hw.span[0]; y <= hi; y++) {
-      const w = YEAR_WEIGHTS[y] || YEAR_WEIGHTS[String(y)];
-      if (w > 0) pool.push([y, w]);
-    }
-    return pool.length ? rWeighted(rng, pool) : rInt(rng, hw.span[0], hi);
-  }
-
-  function build(tiers, total, seed) {
-    const rng = makeRng(seed >>> 0);
-
-    // 区分ごとの本数を total に合わせて按分
-    const declared = TIER_KEYS.reduce((s, k) => s + tiers[k].count, 0);
-    const counts = {};
-    let assigned = 0;
-    TIER_KEYS.forEach((k, i) => {
-      if (i === TIER_KEYS.length - 1) counts[k] = total - assigned;
-      else { counts[k] = Math.round(tiers[k].count / declared * total); assigned += counts[k]; }
-    });
-
-    const used = new Set();
-    const list = [];
-    let idSeq = 1;
-    const authoredMakers = [...new Set(((DATA && DATA.titles) || []).map(t => t.maker))];
-
-    // 手書きのソフトを先に入れ、その分だけ生成の枠を減らす
-    const authored = (DATA && DATA.titles) || [];
-    for (const entry of authored) {
-      if (list.length >= total) break;
-      const tier = tiers[entry.tier] ? entry.tier : 'common';
-      if (counts[tier] <= 0) continue;              // その区分の枠が尽きたら入れない
-      counts[tier]--;
-      used.add(entry.title);
-      list.push(fromData(entry, idSeq++, tiers));
-    }
-
-    for (const tierKey of TIER_KEYS) {
-      const tier = tiers[tierKey];
-      for (let i = 0; i < counts[tierKey]; i++) {
-        // 希少度が高いほど「レア寄りメーカー」が選ばれやすい
-        const bias = { common: -1, mid: 0, rare: 1, ultra: 2 }[tierKey];
-        let maker = rWeighted(rng, MAKERS.map(m => [m, Math.pow(m.rarity, bias)]));
-        // 手書きデータのメーカーがあればそちらを使い、世界観を揃える
-        if (authoredMakers.length) {
-          maker = Object.assign({}, maker, { name: rPick(rng, authoredMakers) });
-          maker.id = maker.name;
-        }
-        const genre = rPick(rng, maker.genres);
-        // ハードの発売期間とメーカーの活動期間が重なるものだけを選ぶ
-        const avail = HARDWARE.filter(h => h.span[0] <= (maker.until || 9999));
-        const hw = rPick(rng, avail);
-        const year = pickYear(rng, hw, maker.until);
-
-        let core, name, guard = 0;
-        do {
-          core = rPick(rng, CORES[genre]);
-          name = rPick(rng, PREFIX) + core + (rng() < 0.35 ? ' ' + rPick(rng, SUFFIX) : '');
-          name = name.trim();
-        } while (used.has(name) && ++guard < 60);
-        if (used.has(name)) name = name + ' 【' + year + '】';
-        used.add(name);
-
-        // 相場は帯の下寄りに偏らせる（高額帯を薄くする）
-        const t = Math.pow(rng(), 1.5);
-        const raw = tier.sale[0] + t * (tier.sale[1] - tier.sale[0]);
-        const step = raw >= 50000 ? 5000 : raw >= 10000 ? 1000 : 100;
-        const base = Math.max(step, Math.round(raw / step) * step);
-
-        list.push({
-          id: idSeq++,
-          name,
-          core,
-          hardware: hw.name,
-          hardwareId: hw.id,
-          year,
-          maker: maker.name,
-          makerId: maker.id,
-          genre,
-          genreLabel: GENRE_LABEL[genre],
-          tier: tierKey,
-          tierLabel: tier.label,
-          base,                                  // 販売基準相場
-          sales: salesFor(tierKey, base, 3, tier.sale),      // 当時の出荷本数
-          buy: Math.round(base * tier.buyRatio / 100) * 100, // 買取目安
-          desc: `${maker.name}が${year}年に${hw.name}向けに発売した${GENRE_LABEL[genre]}。`
-              + rPick(rng, FLAVOR[genre]) + rPick(rng, RARITY_FLAVOR[tierKey]),
-          // 客が指名する頻度。安いソフトほど需要は多いが、高額帯も捌ける程度に留める
-          demand: DEMAND[tierKey] * Math.pow(2000 / base, 0.18),
-        });
-      }
-    }
-
-    // 関連タイトル: 生成分は同じ core、手書き分は同じメーカー（＝同一開発者）で結ぶ
-    const bySeries = new Map();
-    const byMaker = new Map();
-    for (const s of list) {
-      const k = s.authored ? null : s.core;
-      if (k) { if (!bySeries.has(k)) bySeries.set(k, []); bySeries.get(k).push(s.id); }
-      if (!byMaker.has(s.maker)) byMaker.set(s.maker, []);
-      byMaker.get(s.maker).push(s.id);
-    }
-    for (const s of list) {
-      const pool = s.authored ? byMaker.get(s.maker) : bySeries.get(s.core);
-      s.related = pool.filter(id => id !== s.id);
-    }
-
-    list.sort((a, b) => a.year - b.year || a.id - b.id);
-    return list;
-  }
-
-  return { build, makeRng, rInt, rPick, rWeighted, HARDWARE, MAKERS, GENRE_LABEL, DATA };
-});
-
-</script>
-<script>
-'use strict';
-/**
- * 中古ゲームショップ経営プロトタイプ — ゲームエンジン
+ * 台本机 — ゲーム中の文章を直して、data/*.json に書き戻すための道具。
+ * 本体（engine/ui）とは独立していて、読むのは data だけ。
  *
- * 仕様書 10 節「プロトタイプの範囲」に対応。
- * 実装: 50週×2ターンのループ / 店番（客の売買） / 行動フェイズ（オークション・処分品引取・整理）
- *       / 在庫枠の上限 / 家賃の引き落とし / 図鑑の登録・所持の二層管理
- * 未実装: 常連イベント、裏ストーリー、査定の詳細、店舗拡張、評判、グラフィック
- *
- * ブラウザ（<script src>）と Node（require）の両方から使える。
+ * ORIGINAL は build/gen-editor.js が埋め込む（file:// では fetch できないため）。
+ * 直した内容はブラウザに下書きとして残り、「JSONをコピー」で書き戻す。
  */
-(function (root, factory) {
-  const Catalog = (typeof module === 'object' && module.exports)
-    ? require('./catalog.js') : root.Catalog;
-  const api = factory(Catalog);
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.Engine = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Catalog) {
-
-  const { makeRng, rInt, rPick, rWeighted, DATA } = Catalog;
-
-  // ============================================================
-  // バランス定数（調整はすべてここ）
-  // ============================================================
-  const BALANCE = {
-    totalWeeks: 50,        // αテスト版は 10 で作る（UIの「範囲」で切り替え）
-    rent: 33000,
-    startCash: 100000,
-    startInventory: 30,
-    shelfSlots: 50,          // 保管も含めた総枠
-    displaySlots: 20,        // うち店頭陳列できる数
-    /**
-     * 交渉術。金では買えず、常連との付き合いの中で教わる。
-     * 客相手でも業者相手でも「値段の話」は同じなので、仕入れ全体に効く。
-     * 周回引き継ぎでは腕として残る（店の資産は残らない）。
-     */
-    skills: {
-      haggle:      { name: '値切り',   from: '大町',
-                     desc: 'まとめ買いと処分品引取の言い値が25%下がる', lot: -0.25 },
-      appraise:    { name: '目利き',   from: '蜷川',
-                     desc: '持ち込みを30%安く買い取り、指名客には25%高く売れる', buy: -0.30, sell: 0.25 },
-      connections: { name: '顔つなぎ', from: '速水',
-                     desc: 'オークションと取り寄せが30%安くなる',
-                     bid: -0.30, order: -0.30 },
-      // 「未所持が回ってきやすい」は顔つなぎから切り出した。
-      // 未所持は単価が高いので、値引きと同居させると回転が落ちて所持が減る（README）
-      hunting:     { name: '探し物',   from: null, pending: true,
-                     desc: '単品入札に、まだ持っていないソフトが回ってきやすくなる',
-                     unownedBias: 0.9 },
-      // pending: 入手方法（誰が教えるか）が未定。決まったら from を埋めてイベントを足す
-      scout:       { name: '目星',     from: null, pending: true,
-                     desc: 'ロットに良い区分が混ざりやすくなる（並品の一部が上の区分に置き換わる）',
-                     lotTier: 0.06 },
-      sorting:     { name: '選り分け', from: null, pending: true,
-                     desc: 'ロットの中身の状態が一段よくなりやすい',
-                     lotCond: 0.20 },
-      buzz:        { name: '拡散',     from: null, pending: true,
-                     desc: '投稿1回が重くなる。評判の伸びも、持ち込みへの効きも上がる',
-                     promo: 1.20 },
-      charm:       { name: '愛想',     from: null, pending: true,
-                     desc: '評判が上がるとき、上がり幅に上乗せされる（下がるときは変わらない）',
-                     repGain: 0.35 },
-      upsell:      { name: 'もう一声', from: null, pending: true,
-                     desc: '指名客が2本目にも手を伸ばしやすくなる。手番は使わない',
-                     secondBuy: 0.25 },
-      shelving:    { name: '棚づくり', from: null, pending: true,
-                     desc: '同じ広さの店に、あと5本ぶん仕舞える（並べる枠ではなく、抱えられる枠）',
-                     shelfSlots: 5 },
-    },
-
-    /**
-     * 金で買える設備・人手。購入は行動フェイズを1回使う。
-     * 設備は「棚売り（値札売り）」を、人手は「接客（指名客）」を伸ばす。
-     */
-    upgrades: [
-      { id: 'warehouse', name: '倉庫を広げる', cost: 100000, max: 5,
-        effect: { shelfSlots: 50 },
-        desc: '保管できる本数が50枠増える。全タイトルを同時所持するには必須' },
-      { id: 'shelf', name: '陳列棚を増やす', cost: 80000, max: 4,
-        effect: { displaySlots: 10 },
-        desc: '店に並べられる本数が10増える。並べた分だけ値札で売れる' },
-      { id: 'storefront', name: '店内を改装する', cost: 150000, max: 3,
-        effect: { passive: 2 },
-        desc: '照明と什器を入れ替える。値札売りの本数が2本増える' },
-      { id: 'clerk', name: '店員を雇う', cost: 200000, max: 2,
-        effect: { customers: 1 },
-        desc: '接客できる人数が1人増える。指名客と常連に会える機会が増える' },
-    ],
-
-    /**
-     * 激レア15本の入手経路。
-     *  'event'   … 仕様書 8 節どおりイベント報酬のみ（常連イベントの代役）
-     *  'auction' … オークションで購入できる（終盤の資金の受け皿になる）
-     *  'both'    … 両方
-     */
-    ultra: { source: 'auction' },
-    catalogSize: 200,
-    catalogSeed: 20260821,
-
-    tiers: {
-      common: { label: '並品',   count: 70, sale: [500, 2000],      buyRatio: 0.40 },
-      mid:    { label: '中堅',   count: 30, sale: [3000, 8000],     buyRatio: 0.42 },
-      rare:   { label: 'レア',   count: 35, sale: [15000, 40000],   buyRatio: 0.43 },
-      ultra:  { label: '激レア', count: 15, sale: [80000, 300000],  buyRatio: 0.45 },
-    },
-
-    /**
-     * 評判（0〜100）。開店時は最低で、商売の仕方によって上下する。
-     *  - 来客数（判断が要る客）が 1〜6 人の範囲で増減する
-     *  - 店頭の自動売上（賑わい）も連動する
-     *  - 客が持ち込むソフトの希少度がわずかに上がる
-     */
-    reputation: {
-      enabled: true,
-      start: 0, min: 0, max: 100,
-      customers: [1, 3],          // 評判 0 → 100 のときの一般客の数（常連はこれと別枠）
-      passive: [6, 18],           // 同じく店頭の値札売りの本数（安いぶん数は出る）
-      customerNoise: 1,           // 来客数のターンごとのブレ
-      gainFalloff: 0.5,           // 評判が高いほど上がりにくくなる強さ（0で逓減なし）
-      sellerRareBonus: 0.10,      // 評判100で持ち込みのレア率が+10ポイント（劇的にはしない）
-      gain: {
-        buyFromCustomer: 1.5,     // 持ち込みを買い取った
-        junkLot: 1.5,             // 近所の処分品を引き取った（業者との取引では上がらない）
-        refuseSeller: -0.6,       // 持ち込みを断った
-        sellToCustomer: 0.5,      // 指名買いに応じた
-        refuseBuyer: -0.8,        // 指名買いを断った
-        markdownSold: 0.4,        // 値下げ品が売れた
-        shelfFull: 3.0,           // 週末: 陳列枠の充実度に応じて（これが立ち上げの起点）
-        rareOnShelf: 0.5,         // 週末: 陳列中／確保中のレア以上1本につき（上限6本ぶん）
-        junkOnShelf: -0.25,       // 週末: 陳列中のガラクタ1本につき
-        emptyShelf: -2,           // 週末: 棚に売り物が無い
-        loseRare: -1.2,           // レア以上の最後の1本を手放した
-        forcedSale: -6,           // 家賃が払えず在庫を毟られた
-        weeklyDrift: -0.5,        // 何もしなければ少しずつ忘れられる
-      },
-    },
-
-    /**
-     * 店頭の通常売上（判断不要）。
-     * 仕様書 2 節の「客3〜4人」は"判断が要る客"の数として扱い、
-     * それ以外の一般客はまとめて自動処理する。これが無いと家賃を払える売上に届かない。
-     */
-    /**
-     * 店頭の値札売り。棚に並べた＝値札を付けた、ということなので相場より安くしか売れない。
-     * 客が勝手に手に取ってレジに持ってくるだけで、店主が値段を言う場面がないため。
-     * 安いぶん回転は速い。
-     */
-    passiveSales: { count: [7, 12], priceRange: [0.78, 0.90],
-                    // 寂れた店には客も来ない。品揃えが増えるにつれて客足が戻る
-                    earlyCount: [5, 9], fullFromWeek: 16 },
-
-    /**
-     * 常連キャラ（仕様書 8 節）。data/regulars.json の内容が使われる。
-     * 来店回数が visitThresholds に達するとイベントが発生する。
-     */
-    /**
-     * 常連キャラ（仕様書 8 節）。data/regulars.json の内容が使われる。
-     * 来客枠は1回ずつ「一般客か常連か」を抽選する。常連が枠に上乗せされるわけではない。
-     * 寂れた店に常連はついていないので、常連が当たる確率も評判に連動する。
-     */
-    regulars: { enabled: true, visitChance: [0.45, 0.95] },   // 1ターンに最大1人
-
-    // 店番（＝売る／売らないの判断が発生する客）
-    customers: {
-      front: { count: [3, 4], weights: { seller: 0.45, buyer: 0.35, browser: 0.20 } },
-      back:  { count: [4, 5], weights: { seller: 0.25, buyer: 0.60, browser: 0.15 } },
-    },
-    // 指名客の提示額。探し回った末に「〇〇ありますか」と尋ねに来る客なので、
-    // 値札に縛られず相場かそれ以上を出す
-    buyerOfferRange: [0.95, 1.25],
-    buyerSecondItemChance: 0.25,     // ついで買い
-    sellerAskRange: [0.80, 1.50],    // 買取目安に対する持ち込み希望額
-    sellerTierWeights: { common: 0.62, mid: 0.28, rare: 0.10, ultra: 0 }, // 激レアは持ち込まれない
-    reacquireBoost: 3.0,             // 詰み対策: 一度手放したソフトの再登場率
-    markdownRate: 0.20,              // 値下げ幅
-    markdownDemand: 2.2,             // 値下げ品の需要倍率
-    staleWeeks: 8,                   // これ以上寝かせると死に在庫扱い（需要低下）
-    staleDemand: 0.55,
-
-    // 行動フェイズ
-    /**
-     * 処分品引取＝近所の人から引き取る。「捨てるくらいなら持ってって」の口。
-     * 少量・安価で、ガラクタは入らない（最低でも傷あり）。レア以上は出ない。
-     * まとめ買いとの違いは規模ではなく相手で、こちらは商売ではなく人付き合い。
-     */
-    junk:   { cost: [2000, 8000], freeChance: 0, items: [4, 8],
-              mix: { junk: 0, common: 0.88, mid: 0.12, rare: 0, ultra: 0 } },
-    /**
-     * まとめ買い＝業者のオークションロット。量を金で買う。
-     * ガラクタは入れない。中身は全部が実在のソフトで、安い並品が大半という形にする。
-     * 区分の比率は旧 mix の非ガラクタ部分をそのまま正規化したもの（平均単価が変わらない）。
-     */
-    bulk:   { items: [16, 26], priceRatio: [0.20, 0.45], cap: [3000, 90000],
-              // 寂れた店には良いロットが回ってこない。週が進むほど mix に近づく
-              earlyMix: { junk: 0, common: 0.717, mid: 0.208, rare: 0.075, ultra: 0.004 },
-              mixFullFromWeek: 16,
-              // レアの含有率は総数に連動させる（総数が増えると1本あたりの遭遇率が下がる）
-              mix: { junk: 0, common: 0.643, mid: 0.213, rare: 0.130, ultra: 0.014 } },
-    single: { rivalRatio: [0.50, 0.95], askRatio: [0.35, 0.50],
-              tierWeights: { mid: 0.18, rare: 0.70, ultra: 0.12 },
-              ultraLateBonus: 0.35,   // 週が進むほど激レアが出品されやすい
-              ownedPenalty: 0.15 },   // 所持済みは出品されにくい（＝欲しい物が回ってくる）
-
-    /**
-     * 行動フェイズの解禁週（仕様書 3 節の週フェーズ設計に対応）。
-     * 1〜10週は資金繰りを覚える期間なので、大きく張れる選択肢を出さない。
-     */
-    unlock: { bulk: 1, junk: 1, organize: 1, single: 16, expand: 11, order: 26 },
-
-    /**
-     * SNSでの宣伝。手番を1つ使って、評判と「持ち込みの当たりやすさ」を上げる。
-     * 撒くほど店の名前が知られて、持っていないソフトが持ち込まれやすくなるが、
-     * 上限まで行くと届く範囲が飽和してそれ以上は伸びない。
-     */
-    promo: {
-      enabled: true,
-      cap: 50,             // これ以上撒いても伸びない回数
-      // 1回あたりの評判。0.8では「撒くと最終残高が下がる」＝手番に見合わなかった。
-      // 撒くほど得になる最小の値が2.5（測定は README）
-      rep: 2.5,
-      ownedPenalty: 0.85,  // 上限まで撒くと、持っている物が持ち込まれる重みが 1 → 0.15
-    },
-
-    /**
-     * 取り寄せ（仕様書 3 節「46〜50週: 最後の数本を狙い撃つ」に対応する手段）。
-     * 図鑑に載っている＝一度は手にしたソフトを、割増料金で指名して仕入れる。
-     * 終盤に余った資金の受け皿も兼ねる。
-     */
-    order: { premium: 1.6, fromWeek: 1, batch: 3 },   // 1手番でまとめて頼める本数
-
-    /**
-     * 周回引き継ぎ（仕様書 12 節の未決定事項）。
-     * 引き継ぐのは「この世界に何があるかの知識」＝図鑑の登録だけ。
-     * 資金も在庫も持ち越さないので、店の経営そのものは毎周ゼロから始まる。
-     * 登録済みのソフトは最初から取り寄せで狙えるため、完全クリアが現実的になる。
-     */
-    carryOver: { registered: true, skills: true, reveals: true, memories: true, cash: false, cashRatio: 0.2, slots: false },
-
-    /**
-     * ソフトの状態。最小構成——価格倍率だけを持ち、図鑑には干渉しない。
-     *  - 登録も所持も「どの状態でも1本は1本」。真エンドの条件は変わらない
-     *  - 修理・クリーニングの行動は作らない（手番がボトルネックなので増やさない）
-     *  - 在庫で劣化もしない。買ったときの状態のまま
-     * 仕入れ経路ごとに出やすさが違うので、それが仕入れの性格づけになる。
-     */
-    condition: {
-      enabled: true,
-      grades: [
-        { id: 'worn',  label: '傷あり', mult: 0.80 },
-        { id: 'plain', label: '並',     mult: 1.00 },
-        { id: 'mint',  label: '美品',   mult: 1.50 },
-      ],
-      /**
-       * まとめ買いは期待値1.0になるよう配合してある（0.8×0.45 + 1.0×0.37 + 1.5×0.18 = 1.00）。
-       * 状態を入れたこと自体で経済が動かないようにするため。
-       * 数値調整でわざと傾ける場合は、ここが独立したレバーになる。
-       */
-      mix: {
-        bulk:   [0.45, 0.37, 0.18],   // まとめ買いロット。半分近くが傷あり、たまに当たりが混じる
-        junk:   [0.85, 0.15, 0.00],   // 処分品引取。素人の押し入れ。美品は出ない
-        seller: [0.30, 0.50, 0.20],   // 客の持ち込み。提示額も状態に連動する
-        single: [0.10, 0.45, 0.45],   // 単品オークション。写真を見て入札するので状態はいい
-        event:  [0.05, 0.45, 0.50],   // 常連からの譲渡。持ち主が大事にしていたもの
-        start:  [0.35, 0.50, 0.15],   // 開店在庫。叔父が遺した売れ残り
-      },
-      // 取り寄せは割増を払って業者に探させるので、状態は「並」で固定。
-      // ただし激レアだけは美品しか存在しないので、そちらが優先される。
-      // 料金も届く状態に連動させる（連動させないと激レアの取り寄せだけが得になる）
-      orderCond: 1,
-      // 激レアは美品しか現存しない。数が少なく、持ち主が大事にしてきたものだけが残っている
-      ultraAlwaysMint: true,
-    },
-
-    wholesaleRatio: 0.40,   // 業者への卸値（整理）
-    forcedSaleRatio: 0.30,  // 家賃未払い時の強制売却
-    junkValue: 50,          // ガラクタの処分単価
-
-    /**
-     * 業者の立替（家賃の穴埋め）。
-     * これが無いと、金が足りない → 在庫を叩き売る → 棚が減る → 値札売りが減る、の
-     * 螺旋しか無くなり、「カツカツだが回る」状態が存在できない。
-     * 在庫を減らさずに現金を都合する道を作って、螺旋の底に床を張る。
-     */
-    credit: {
-      enabled: true,
-      limit: 250000,      // 立替の上限（家賃の8週分）
-      interest: 0.06,     // 週あたりの手数料。残債に対して掛かる
-      reserve: 20000,     // 返済後に手元へ残す額。全部返すと翌週すぐまた借りる
-      stockUntilWeek: 50, // この週までは「ロットを買う金」としても借りられる（0で家賃の穴埋めのみ）
-    },
-  };
-
-  const HALF_LABEL = ['前半（平日）', '後半（週末）'];
-
-  /**
-   * 先代（叔父）が遺した屋号。姓「辻」の英訳で、主人公の姓でもある。
-   * 石橋→ブリヂストンと同じ流儀だが、そうとは誰も言わない。
-   */
-  const SHOP_NAME = (DATA && DATA.lore && DATA.lore.shop) || 'クロスロード';
-
-  /**
-   * 種明かし。図鑑登録100%で叔父の正体、所持100%（真エンド）で主人公の正体。
-   * 主人公は最初から全部知っているので「気づく」のではなく「黙っていた」。
-   * 一度出たら周回を越えて出ない（carryOver.reveals）。
-   */
-  const REVEALS = (DATA && DATA.lore && DATA.lore.reveals) || {};
-  function checkReveals(st) {
-    if (st.ended) return;
-    const total = st.catalog.length;
-    const hit = [];
-    if (st.registered.size >= total) hit.push('registered');
-    if (ownedIds(st).size >= total) hit.push('owned');
-    for (const key of hit) {
-      if (st.reveals[key] || !REVEALS[key]) continue;
-      st.reveals[key] = { week: st.week, half: st.half };
-      log(st, 'reveal', REVEALS[key].title, 0);
-    }
-  }
-
-  // ============================================================
-  // 生成ヘルパ
-  // ============================================================
-  function pickTier(rng, mix) {
-    const pairs = Object.keys(mix).filter(k => mix[k] > 0).map(k => [k, mix[k]]);
-    return rWeighted(rng, pairs);
-  }
-
-  /** カタログから1本選ぶ。tier 指定・所持状況・売却履歴で重み付け */
-  function pickTitle(st, tier, opts) {
-    opts = opts || {};
-    const pool = st.catalog.filter(s => s.tier === tier);
-    if (!pool.length) return null;
-    const owned = ownedIds(st);
-    const pairs = pool.map(s => {
-      let w = 1;
-      if (opts.byDemand) w *= s.demand;
-      if (st.soldOnce.has(s.id)) w *= st.cfg.reacquireBoost;   // 詰み対策
-      if (opts.ownedPenalty && owned.has(s.id)) w *= opts.ownedPenalty;
-      if (opts.unregisteredOnly && st.registered.has(s.id)) w = 0;   // まだ存在を知らないものだけ
-      return [s, w];
-    });
-    if (!pairs.some(p => p[1] > 0)) return null;
-    return rWeighted(st.rng, pairs);
-  }
-
-  /**
-   * 激レアは美品しか現存しない。抽選結果より優先する。
-   * 経路をまたいで効かせたいので、状態を決める全経路がここを通る
-   */
-  function fixCond(st, title, cond) {
-    const c = st.cfg.condition;
-    if (!c || !c.enabled) return cond;
-    if (c.ultraAlwaysMint && title && title.tier === 'ultra') return c.grades.length - 1;
-    return cond;
-  }
-  /** 仕入れ経路ごとの状態抽選。cond は grades のインデックス */
-  /**
-   * 状態を一段よくする（交渉術「選り分け」）。効くのはロットだけ。
-   * 単品入札やイベントは、そこに在る一本の状態が先に決まっている
-   */
-  function boostCond(st, source, mix) {
-    if (source !== 'bulk' && source !== 'junk') return mix;
-    const b = skill(st, 'lotCond');
-    if (!b) return mix;
-    const out = mix.slice();
-    // 上から順に送る。先に下から動かすと、送った分をもう一度送ってしまう
-    for (let i = out.length - 2; i >= 0; i--) {
-      const move = out[i] * b;
-      out[i] -= move;
-      out[i + 1] += move;
-    }
-    return out;
-  }
-
-  function rollCond(st, source, title) {
-    const c = st.cfg.condition;
-    if (!c || !c.enabled) return 1;
-    const forced = fixCond(st, title, null);
-    if (forced != null) return forced;
-    const mix = boostCond(st, source, (c.mix && c.mix[source]) || c.mix.bulk);
-    let r = st.rng();
-    for (let i = 0; i < mix.length; i++) { r -= mix[i]; if (r <= 0) return i; }
-    return mix.length - 1;
-  }
-  /** その在庫の状態倍率。ジャンクと未設定は等倍 */
-  function condMult(st, item) {
-    const c = st.cfg.condition;
-    if (!c || !c.enabled || !item || item.junk || item.cond == null) return 1;
-    const g = c.grades[item.cond];
-    return g ? g.mult : 1;
-  }
-  const condLabel = (st, item) => {
-    const c = st.cfg.condition;
-    if (!c || !c.enabled || !item || item.junk || item.cond == null) return '';
-    const g = c.grades[item.cond];
-    return g ? g.label : '';
-  };
-
-  function makeItem(st, title, source) {
-    return {
-      uid: st.uidSeq++,
-      titleId: title ? title.id : null,
-      junk: !title,
-      display: false,
-      markdown: false,
-      protect: false,      // 非売品（コレクション用に確保）。客も自動売上も手を出さない
-      cond: title ? rollCond(st, source || 'bulk', title) : null,
-      acquiredWeek: st.week,
-    };
-  }
-
-  function makeJunk(st) { return makeItem(st, null); }
-
-  // ============================================================
-  // 参照系
-  // ============================================================
-  const titleOf = (st, item) => item.junk ? null : st.byId.get(item.titleId);
-
-  /** その在庫の売値（値下げ反映） */
-  function priceOf(st, item) {
-    const t = titleOf(st, item);
-    if (!t) return st.cfg.junkValue;
-    return Math.round(t.base * condMult(st, item)
-      * (item.markdown ? 1 - st.cfg.markdownRate : 1));
-  }
-
-  function demandOf(st, item) {
-    const t = titleOf(st, item);
-    if (!t) return 0;
-    let d = t.demand;
-    if (item.markdown) d *= st.cfg.markdownDemand;
-    if (st.week - item.acquiredWeek >= st.cfg.staleWeeks) d *= st.cfg.staleDemand;
-    return d;
-  }
-
-  const ownedIds = st => new Set(st.inv.filter(i => !i.junk).map(i => i.titleId));
-  /** 取り寄せ料金（相場＋割増） */
-  const orderCost = (st, t) => {
-    const c = st.cfg.condition;
-    let m = 1;
-    if (c && c.enabled) {
-      const cond = fixCond(st, t, c.orderCond);
-      const g = c.grades[cond];
-      if (g) m = g.mult;
-    }
-    return Math.round(t.base * m * st.cfg.order.premium * (1 + skill(st, 'order')) / 100) * 100;
-  };
-  /** 取り寄せられるソフト＝登録済みだが今は持っていないもの */
-  function orderable(st) {
-    if (st.week < Math.max(st.cfg.order.fromWeek, st.cfg.unlock.order || 1)) return [];
-    const owned = ownedIds(st);
-    return st.catalog.filter(t => st.registered.has(t.id) && !owned.has(t.id));
-  }
-  const displayed = st => st.inv.filter(i => i.display && !i.junk);
-  /** 実際に売れる在庫（陳列中かつ非売品でない） */
-  const forSale = st => st.inv.filter(i => i.display && !i.junk && !i.protect);
-  /** いま抱えられる本数。設備で増えた枠に、交渉術のぶんを足す */
-  const shelfCap = st => st.cfg.shelfSlots + skill(st, 'shelfSlots');
-  const freeSlots = st => shelfCap(st) - st.inv.length;
-  /** いま並べられる本数。設備で増えた枠に、交渉術のぶんを足す */
-  const displayCap = st => st.cfg.displaySlots + skill(st, 'displaySlots');
-  const freeDisplay = st => displayCap(st) - st.inv.filter(i => i.display).length;
-  const countOf = (st, titleId) => st.inv.filter(i => i.titleId === titleId).length;
-
-  function stats(st) {
-    const owned = ownedIds(st);
-    return {
-      week: st.week, half: st.half, cash: st.cash, debt: st.debt, promo: st.promo,
-      inventory: st.inv.length, slots: shelfCap(st), displaySlots: displayCap(st),
-      reputation: Math.round(st.reputation * 10) / 10,
-      junk: st.inv.filter(i => i.junk).length,
-      displayed: displayed(st).length,
-      registered: st.registered.size,
-      owned: owned.size,
-      total: st.catalog.length,
-      registeredRate: st.registered.size / st.catalog.length,
-      ownedRate: owned.size / st.catalog.length,
-    };
-  }
-
-  function log(st, kind, text, amount) {
-    st.log.push({ week: st.week, half: st.half, kind, text, amount: amount || 0 });
-    if (st.log.length > 600) st.log.splice(0, st.log.length - 600);
-  }
-
-  // ============================================================
-  // 在庫操作
-  // ============================================================
-  function addItem(st, title, opts) {
-    if (freeSlots(st) <= 0) return null;
-    st.totals.acquired++;
-    const item = makeItem(st, title, opts && opts.source);
-    if (opts && opts.cond != null) item.cond = fixCond(st, title, opts.cond);
-    st.inv.push(item);
-    if (title) st.registered.add(title.id);            // 図鑑登録は一度でも入手すれば永続
-    if (opts && opts.display && freeDisplay(st) > 0) item.display = true;
-    return item;
-  }
-
-  function removeItem(st, uid, cause) {
-    const idx = st.inv.findIndex(i => i.uid === uid);
-    if (idx < 0) return null;
-    const item = st.inv[idx];
-    st.inv.splice(idx, 1);
-    if (!item.junk && countOf(st, item.titleId) === 0) {
-      st.soldOnce.add(item.titleId);                      // 買い戻し導線
-      st.lost[cause || 'other'] = (st.lost[cause || 'other'] || 0) + 1;   // 所持率が削れた経路
-      const t = titleOf(st, item);
-      if (t && (t.tier === 'rare' || t.tier === 'ultra')) rep(st, st.cfg.reputation.gain.loseRare);
-    }
-    return item;
-  }
-
-  function setDisplay(st, uid, on) {
-    const item = st.inv.find(i => i.uid === uid);
-    if (!item) return false;
-    if (on && !item.display && freeDisplay(st) <= 0) return false;
-    item.display = !!on;
-    return true;
-  }
-
-  function setProtect(st, uid, on) {
-    const item = st.inv.find(i => i.uid === uid);
-    if (!item) return false;
-    item.protect = !!on;
-    return true;
-  }
-
-  function setMarkdown(st, uid, on) {
-    const item = st.inv.find(i => i.uid === uid);
-    if (!item) return false;
-    item.markdown = !!on;
-    return true;
-  }
-
-  /** 業者に卸す（整理） */
-  function wholesale(st, uids) {
-    let total = 0, n = 0;
-    for (const uid of uids) {
-      const item = st.inv.find(i => i.uid === uid);
-      if (!item) continue;
-      const t = titleOf(st, item);
-      const price = t
-        ? Math.round(t.base * condMult(st, item) * st.cfg.wholesaleRatio)
-        : st.cfg.junkValue;
-      removeItem(st, uid);
-      total += price; n++;
-    }
-    st.cash += total;
-    st.totals.wholesale += total;
-    if (n) log(st, 'wholesale', `${n}点を業者に卸した`, total);
-    return total;
-  }
-
-  // ============================================================
-  // 店番フェイズ
-  // ============================================================
-  const REGULARS = (Catalog.DATA && Catalog.DATA.regulars) || [];
-  const THRESHOLDS = (Catalog.DATA && Catalog.DATA.visitThresholds) || [3, 8, 14, 20];
-
-  /** 常連の来店記録。まだ無ければ作る */
-  function regState(st, id) {
-    if (!st.regulars[id]) st.regulars[id] = { visits: 0, fired: 0 };
-    return st.regulars[id];
-  }
-
-  /** 次に来る常連を選ぶ。イベントが近い人ほど来やすい */
-  function pickRegular(st, exclude, only) {
-    const from = only && only.length ? only : REGULARS;
-    if (!from.length) return null;
-    const avail = exclude ? from.filter(r => !exclude.has(r.id)) : from;
-    if (!avail.length) return null;
-    const weighted = avail.map(r => {
-      const s = regState(st, r.id);
-      const next = THRESHOLDS[s.fired];
-      // まだイベントが残っている常連を優先する
-      let eager = next === undefined ? 0.3 : 1 + Math.max(0, 1 - (next - s.visits) / 6);
-      // 導入役は最初に来てもらわないと、解禁される行動がいつまでも出てこない
-      if (r.opensWith && !st[r.opensWith] && !s.fired) eager *= 6;
-      return [r, (r.weight || 1) * eager];
-    });
-    return rWeighted(st.rng, weighted);
-  }
-
-  /** いま効いている記憶。切っている相手は引き直しの対象から外れる */
-  const activeMemories = st => REGULARS.filter(r => st.memories[r.id] && !st.memoryOff[r.id]);
-
-  /**
-   * 記憶のオン・オフ。引き直しは記憶が何個あっても1回なので、
-   * 対象を絞るほどその相手に会いやすくなる（全部入れると薄まる）
-   */
-  function setMemory(st, id, on) {
-    if (!st.memories[id]) return false;
-    if (on) delete st.memoryOff[id];
-    else st.memoryOff[id] = true;
-    return true;
-  }
-
-  /** 常連の来店を1件作る。しきい値に達していればイベントになる */
-  function makeRegularCustomer(st, exclude, only) {
-    const r = pickRegular(st, exclude, only);
-    if (!r) return null;
-    if (exclude) exclude.add(r.id);
-    const s = regState(st, r.id);
-    s.visits++;
-    const who = { id: r.id, name: r.name, title: r.title, visits: s.visits };
-    const next = THRESHOLDS[s.fired];
-    if (next !== undefined && s.visits >= next && r.events[s.fired]) {
-      const ev = r.events[s.fired];
-      // 物を置いていく／売ってくれるイベントは、棚が空くまで起こさない。
-      // 満杯のまま起こしても受け取れず、せっかくの来店が無駄になる
-      const needsSlot = ev.type === 'gift' || ev.type === 'giftUltra' || ev.type === 'offer';
-      if (!needsSlot || freeSlots(st) > 0) {
-        s.fired++;
-        // 最後まで見届けたら「◯◯との記憶」が残る。次の周でこの人が来やすくなる
-        if (s.fired >= THRESHOLDS.length && !st.memories[r.id]) {
-          st.memories[r.id] = true;
-          log(st, 'memory', `${r.name}との記憶が残った。次の周でも会いやすくなる。`, 0);
-        }
-        return { type: 'event', regular: who, event: ev };
-      }
-    }
-    // イベント以外の日は普通の客と同じように振る舞う（売買の回数を減らさない）。
-    // ただし alwaysBrowser の常連は必ず冷やかしになる＝来店枠を食うだけの邪魔者
-    let type;
-    if (r.alwaysBrowser) {
-      type = 'browser';
-    } else {
-      const w = st.cfg.customers[st.half === 0 ? 'front' : 'back'].weights;
-      type = rWeighted(st.rng, Object.keys(w).map(k => [k, w[k]]));
-    }
-    const c = makeCustomer(st, type);
-    c.regular = who;
-    if (c.type === 'browser' && r.lines && r.lines.length) c.line = rPick(st.rng, r.lines);
-    return c;
-  }
-
-  function buildQueue(st) {
-    const cfg = st.cfg.customers[st.half === 0 ? 'front' : 'back'];
-    const rc = st.cfg.reputation;
-    let n;
-    if (rc.enabled) {
-      // 評判で来客数が決まる。後半（週末）は少し多い
-      const base = byRep(st, rc.customers) + (st.half === 1 ? 0.6 : 0) + st.clerkBonus;
-      const noise = rInt(st.rng, -rc.customerNoise, rc.customerNoise);
-      n = Math.max(rc.customers[0], Math.min(rc.customers[1] + st.clerkBonus, Math.round(base) + noise));
-    } else {
-      n = rInt(st.rng, cfg.count[0], cfg.count[1]);
-    }
-    // 一般客。常連とは別枠なので、常連が来た日でも普通の客の数は減らない
-    const queue = [];
-    for (let i = 0; i < n; i++) {
-      const type = rWeighted(st.rng, Object.keys(cfg.weights).map(k => [k, cfg.weights[k]]));
-      queue.push(makeCustomer(st, type));
-    }
-
-    // 常連は1ターンに最大1人。来るかどうかも評判に連動する
-    // （寂れた店にはまだ常連がついていない）
-    const rg = st.cfg.regulars;
-    if (rg.enabled && REGULARS.length) {
-      const chance = Array.isArray(rg.visitChance) ? byRep(st, rg.visitChance) : rg.visitChance;
-      // 「誰も来ない」が出たときだけ、記憶のある常連だけでもう一度引き直す。
-      // 前の周で最後まで付き合った相手とは、また会いやすい。
-      // 引き直しは1回きりなので、入れる人数を絞るほど一人あたりは濃くなる
-      const remembered = activeMemories(st);
-      let pool = null;                               // null なら全員から選ぶ
-      if (st.rng() >= chance) {
-        if (remembered.length && st.rng() < chance) pool = remembered;
-        else pool = false;                           // 今日は誰も来ない
-      }
-      if (pool !== false) {
-        const c = makeRegularCustomer(st, null, pool);
-        if (c) {
-          // 冷やかし専門の常連（漆原）だけは、来た日に普通の客を1人押しのける。
-          // 「来店枠を食うだけの邪魔者」が彼の役割なので、別枠にすると無害になってしまう
-          const r = REGULARS.find(x => x.id === c.regular.id);
-          if (r && r.alwaysBrowser && queue.length) queue.pop();
-          queue.splice(rInt(st.rng, 0, queue.length), 0, c);        // 並び順はばらす
-        }
-      }
-    }
-    return queue;
-  }
-
-  /** 常連イベントの効果を適用する。yes は offer 型で買うかどうか */
-  function resolveEvent(st, c, yes) {
-    const e = c.event, who = c.regular;
-    const res = { kind: e.type, gained: null, spent: 0 };
-    const byTitle = name => st.catalog.find(t => t.name === name);
-
-    // どのイベントでもスキルを教われる（本来の効果とは別に付く）。
-    // 周回で既に覚えている場合は、教え直さずに skillKnown の別セリフ＋現金になる。
-    if (e.skill && st.cfg.skills[e.skill]) {
-      const sk = st.cfg.skills[e.skill];
-      if (!st.skills[e.skill]) {
-        st.skills[e.skill] = true;
-        log(st, 'skill', `${who.name}から「${sk.name}」を教わった — ${sk.desc}`, 0);
-      } else if (e.skillKnown) {
-        const amount = e.skillKnown.amount || 0;
-        st.cash += amount;
-        res.skillCash = amount;   // res.spent は後段の offer で上書きされるので別に持つ
-        log(st, 'skill', `${who.name}: ${e.skillKnown.text}`, amount);
-      }
-    }
-
-    if (e.type === 'talk') {
-      // 何も起きない。時間だけが過ぎる
-      log(st, 'event', `${who.name}: ${e.text}`, 0);
-
-    } else if (e.type === 'cash') {
-      st.cash += e.amount;
-      res.spent = -e.amount;
-      log(st, 'event', `${who.name}: ${e.text}`, e.amount);
-
-    } else if (e.type === 'info') {
-      // 存在を知る＝図鑑に登録される。取り寄せで狙えるようになる
-      const t = pickTitle(st, e.tier, { ownedPenalty: 1, unregisteredOnly: true });
-      if (t) {
-        st.registered.add(t.id);
-        res.gained = t.id;
-        log(st, 'event', `${who.name}: ${e.text}（図鑑に「${t.name}」が載った）`, 0);
-      } else {
-        log(st, 'event', `${who.name}: ${e.text}`, 0);
-      }
-
-    } else if (e.type === 'buyBonus') {
-      st.buyBonus += e.value;
-      log(st, 'event', `${who.name}: ${e.text}`, 0);
-
-    } else if (e.type === 'openPromo') {
-      st.promoOpen = true;
-      res.opened = true;
-      log(st, 'event', `${who.name}: ${e.text}`, 0);
-      log(st, 'promo', '店のアカウントができた。「SNSで宣伝する」が選べるようになった。', 0);
-
-    } else if (e.type === 'gift' || e.type === 'giftUltra') {
-      // 指名の贈り物は、既に持っていてもそのまま貰う（ダブりは売ればいい）。
-      // 激レアに化けさせると、中堅1本のつもりのイベントが破格の当たりになってしまう
-      let t = e.type === 'gift' ? byTitle(e.title) : null;
-      if (!t) t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
-      if (t && freeSlots(st) > 0) {
-        addItem(st, t, { source: 'event' });
-        res.gained = t.id;
-        log(st, 'event', `${who.name}: ${e.text}（「${t.name}」を手に入れた）`, 0);
-      } else {
-        // 棚が満杯で受け取れないイベントを消費してしまうと、激レアが永久に消える。
-        // 空けてからもう一度来てもらう
-        res.missed = true;
-        log(st, 'event', `${who.name}: ${e.text} ※棚が満杯で受け取れなかった（また持ってきてくれるだろう）`, 0);
-      }
-
-    } else if (e.type === 'offer') {
-      const t = byTitle(e.title);
-      if (!t) { log(st, 'event', `${who.name}: ${e.text}`, 0); return res; }
-      const price = Math.round(t.base * e.priceRatio / 100) * 100;
-      if (!yes) { log(st, 'event', `${who.name}: 「${t.name}」の話を断った`, 0); return res; }
-      if (st.cash < price || freeSlots(st) <= 0) {
-        res.missed = true;   // 断ったのではなく買えなかっただけなので、話は流さない
-        log(st, 'event', `${who.name}: 「${t.name}」を買えなかった（また声を掛けてくれるだろう）`, 0);
-        return res;
-      }
-      st.cash -= price;
-      st.totals.purchases += price;
-      st.totals.boughtCount++;
-      addItem(st, t, { source: 'event' });
-      res.gained = t.id;
-      res.spent = price;
-      log(st, 'event', `${who.name}: ${e.text}（「${t.name}」を${price.toLocaleString()}円で買い取った）`, -price);
-    }
-    return res;
-  }
-
-  // 宣伝のログ。語り口が若く読めるのは意図的だが、年齢そのものは書かない
-  const PROMO_LINES = [
-    '入荷したぶんを並べて写真を撮り、店のアカウントに上げた。',
-    '棚の背表紙が揃っているところを撮った。この並びが分かる人には分かる。',
-    '「今日入った箱」と書いて中身を並べた。開封の順に撮るのがいいらしい。',
-    '値札の付け方を訊かれたので、そのまま投稿にした。伸びた。',
-    '当時の広告の話を書いたら、思ったより読まれた。',
-    '在庫の棚をゆっくり映した動画を上げた。何が良いのかは自分でも分からない。',
-    '「この箱の角の潰れ方が好きな人はいますか」と書いた。何人かいた。',
-    '営業日の告知だけのつもりが、隅に写ったソフトのほうが話題になった。',
-  ];
-  const PROMO_CAPPED = [
-    'いつもどおり投稿した。もう届く人には届いているらしく、反応は変わらない。',
-    '写真を上げた。伸びも落ちもしない。このあたりが天井なのだろう。',
-  ];
-
-  const BROWSE_LINES = [
-    'この棚、前より増えたね。',
-    '昔ここで買ったソフトを探してるんだ。また来るよ。',
-    '駅前の店が潰れたらしいよ。在庫はどこに行ったんだろうね。',
-    '黒川インタラクティブの最後のソフト、見たことある？',
-    'ポケッタのソフトって、まだ動くもんかね。',
-    '子供の頃に売っちゃったやつ、いま高いんでしょ？',
-  ];
-
-  function makeCustomer(st, type) {
-    if (type === 'buyer') {
-      const shelf = forSale(st);
-      if (!shelf.length) return { type: 'browser', line: '（棚を一周して、何も買わずに出て行った）' };
-      const item = rWeighted(st.rng, shelf.map(i => [i, demandOf(st, i)]));
-      const t = titleOf(st, item);
-      const r = st.cfg.buyerOfferRange;
-      const offer = Math.round(priceOf(st, item)
-        * (r[0] + st.rng() * (r[1] - r[0])) * (1 + skill(st, 'sell')) / 100) * 100;
-      return { type: 'buyer', uid: item.uid, titleId: t.id, offer };
-    }
-    if (type === 'seller') {
-      const w = Object.assign({}, st.cfg.sellerTierWeights);
-      const rc = st.cfg.reputation;
-      if (rc.enabled && rc.sellerRareBonus) {
-        // 評判が高いほど良い物が持ち込まれる（劇的にはしない）
-        const b = repRate(st) * rc.sellerRareBonus;
-        w.rare = (w.rare || 0) + b;
-        w.mid = (w.mid || 0) + b * 0.5;
-        w.common = Math.max(0.05, (w.common || 0) - b * 1.5);
-      }
-      const tier = pickTier(st.rng, w);
-      const t = pickTitle(st, tier, { byDemand: true, ownedPenalty: sellerOwnedPenalty(st) });
-      if (!t) return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
-      const r = st.cfg.sellerAskRange;
-      const cond = rollCond(st, 'seller');
-      const cm = (st.cfg.condition && st.cfg.condition.enabled)
-        ? st.cfg.condition.grades[cond].mult : 1;
-      let ask = t.buy * cm * (r[0] + st.rng() * (r[1] - r[0])) * (1 + skill(st, 'buy'));
-      if (st.buyBonus) ask *= (1 - Math.min(0.4, st.buyBonus));   // 常連の値引き
-      ask = Math.max(100, Math.round(ask / 100) * 100);
-      return { type: 'seller', titleId: t.id, ask, cond };
-    }
-    return { type: 'browser', line: rPick(st.rng, BROWSE_LINES) };
-  }
-
-  /** 現在の客に応答する。yes=売る／買う */
-  function answer(st, yes) {
-    if (st.phase !== 'shop' || !st.current) return null;
-    const c = st.current;
-    if (c.type === 'event') {
-      const r = resolveEvent(st, c, yes);
-      // 受け取れなかったイベントは無かったことにして、次の来店でもう一度出す
-      if (r.missed && c.regular) {
-        const rs = regState(st, c.regular.id);
-        rs.fired = Math.max(0, rs.fired - 1);
-      }
-      st.current = st.queue.shift() || null;
-      if (!st.current) enterActionPhase(st);
-      return { customer: c, accepted: true, event: r };
-    }
-    const result = { customer: c, accepted: false, reason: null };
-
-    // 断ると評判が下がる
-    if (!yes && c.type === 'buyer') rep(st, st.cfg.reputation.gain.refuseBuyer);
-    if (!yes && c.type === 'seller') rep(st, st.cfg.reputation.gain.refuseSeller);
-
-    if (c.type === 'buyer' && yes) {
-      const item = st.inv.find(i => i.uid === c.uid);
-      if (item) {
-        const t = titleOf(st, item);
-        if (item.markdown) rep(st, st.cfg.reputation.gain.markdownSold);
-        rep(st, st.cfg.reputation.gain.sellToCustomer);
-        removeItem(st, c.uid, 'buyer');
-        st.cash += c.offer;
-        st.totals.sales += c.offer;
-        st.totals.soldCount++;
-        result.accepted = true;
-        log(st, 'sell', `「${t.name}」を売った`, c.offer);
-
-        // ついで買い: 陳列中の安い一本を追加で買っていく
-        if (st.rng() < st.cfg.buyerSecondItemChance + skill(st, 'secondBuy')) {
-          const cheap = forSale(st).filter(i => priceOf(st, i) <= 3000);
-          if (cheap.length) {
-            const extra = rWeighted(st.rng, cheap.map(i => [i, demandOf(st, i)]));
-            const et = titleOf(st, extra);
-            const ep = priceOf(st, extra);
-            removeItem(st, extra.uid, 'buyer');
-            st.cash += ep;
-            st.totals.sales += ep;
-            st.totals.soldCount++;
-            result.extra = { titleId: et.id, price: ep };
-            log(st, 'sell', `ついでに「${et.name}」も売れた`, ep);
-          }
-        }
-      }
-    } else if (c.type === 'seller' && yes) {
-      if (st.cash < c.ask) result.reason = 'cash';
-      else if (freeSlots(st) <= 0) result.reason = 'slots';
-      else {
-        const t = st.byId.get(c.titleId);
-        st.cash -= c.ask;
-        st.totals.purchases += c.ask;
-        st.totals.boughtCount++;
-        addItem(st, t, { display: true, cond: c.cond });
-        rep(st, st.cfg.reputation.gain.buyFromCustomer);
-        result.accepted = true;
-        log(st, 'buy', `「${t.name}」を買い取った`, -c.ask);
-      }
-    }
-
-    st.history.customers.push({ week: st.week, type: c.type, accepted: result.accepted });
-    st.current = st.queue.shift() || null;
-    if (!st.current) enterActionPhase(st);
-    return result;
-  }
-
-  // ============================================================
-  // 行動フェイズ
-  // ============================================================
-  /** 週の進みに応じてロットの中身を良くする */
-  /**
-   * ロットの区分を上に押し上げる（交渉術「目星」）。
-   * 並品の一部を、上の区分へその比率のまま振り分ける。
-   * 比率のままなので、処分品引取のようにレアが0の配分では0のまま増えない
-   */
-  function boostTier(st, mix) {
-    const b = skill(st, 'lotTier');
-    if (!b) return mix;
-    const up = ['mid', 'rare', 'ultra'];
-    const sum = up.reduce((a, k) => a + (mix[k] || 0), 0);
-    if (!sum) return mix;
-    const move = (mix.common || 0) * b;
-    const out = Object.assign({}, mix);
-    out.common = (mix.common || 0) - move;
-    for (const k of up) out[k] = (mix[k] || 0) + move * (mix[k] || 0) / sum;
-    return out;
-  }
-
-  function lotMix(st, spec) {
-    if (!spec.earlyMix) return boostTier(st, spec.mix);
-    const span = Math.max(1, (spec.mixFullFromWeek || 1) - 1);
-    const t = Math.max(0, Math.min(1, (st.week - 1) / span));
-    const out = {};
-    for (const k of Object.keys(spec.mix)) {
-      const a = spec.earlyMix[k] === undefined ? spec.mix[k] : spec.earlyMix[k];
-      out[k] = a + t * (spec.mix[k] - a);
-    }
-    return boostTier(st, out);
-  }
-
-  function rollLot(st, spec) {
-    const n = rInt(st.rng, spec.items[0], spec.items[1]);
-    const mix = lotMix(st, spec);
-    const titles = [];
-    let junkCount = 0, retail = 0;
-    for (let i = 0; i < n; i++) {
-      const tier = pickTier(st.rng, mix);
-      if (tier === 'junk') { junkCount++; continue; }
-      const t = pickTitle(st, tier, { byDemand: true });
-      if (!t) { junkCount++; continue; }
-      titles.push(t.id);
-      retail += t.base;
-    }
-    return { count: n, titles, junkCount, retail };
-  }
-
-  const unlocked = (st, key) => {
-    // 宣伝だけは週ではなく、アカウントを作ってもらったかどうかで決まる
-    if (key === 'promo') return !!st.promoOpen;
-    return st.week >= (st.cfg.unlock[key] || 1);
-  };
-  /**
-   * 習得済みスキルの効果を合計する。key は lot / buy / sell / bid / order / unownedBias など。
-   * 手で切っているものは数えない（効き目を1つずつ確かめるための仕掛け）
-   */
-  function skill(st, key) {
-    let v = 0;
-    for (const id in st.skills) {
-      if (st.skillOff && st.skillOff[id]) continue;
-      const def = st.cfg.skills[id];
-      if (def && def[key]) v += def[key];
-    }
-    return v;
-  }
-  /** その交渉術がいま効いているか */
-  const skillOn = (st, id) => !!st.skills[id] && !(st.skillOff && st.skillOff[id]);
-  /**
-   * 交渉術を手で入り切りする。検証用——覚えていないものを入れることもできる。
-   * 覚えたかどうか（st.skills）と、効かせるかどうか（st.skillOff）を分けて持つ
-   */
-  function setSkill(st, id, on) {
-    if (!st.cfg.skills[id]) return false;
-    if (on) { st.skills[id] = true; delete st.skillOff[id]; }
-    else { st.skillOff[id] = true; }
-    return true;
-  }
-  /** いま買える設備・人手の一覧 */
-  const availableUpgrades = st => (st.cfg.upgrades || [])
-    .filter(u => (st.upgrades[u.id] || 0) < u.max)
-    .map(u => Object.assign({}, u, { owned: st.upgrades[u.id] || 0 }));
-
-  /**
-   * 評判を動かす。0〜100 に収める。
-   * 上げ幅は評判が高いほど小さくなる（逓減）。寂れた店が有名になるのは速いが、
-   * 名店がさらに名を上げるのは難しい。下げ幅には逓減をかけない。
-   */
-  function rep(st, delta) {
-    const c = st.cfg.reputation;
-    if (!c.enabled || !delta) return;
-    // 上乗せは逓減の前に掛ける。逓減の後だと、評判が高いほど効かない二重の壁になる
-    if (delta > 0) delta *= 1 + skill(st, 'repGain');
-    if (delta > 0) delta *= Math.pow(1 - repRate(st), c.gainFalloff);
-    st.reputation = Math.max(c.min, Math.min(c.max, st.reputation + delta));
-  }
-  /** 評判の 0〜1 正規化 */
-  const repRate = st => {
-    const c = st.cfg.reputation;
-    if (!c.enabled) return 1;
-    return (st.reputation - c.min) / Math.max(1, c.max - c.min);
-  };
-  /** 評判から決まる値を線形補間する */
-  const byRep = (st, range) => range[0] + repRate(st) * (range[1] - range[0]);
-
-  /** 宣伝がどこまで効いているか。0〜1 */
-  function promoRate(st) {
-    const c = st.cfg.promo;
-    if (!c || !c.enabled || !c.cap) return 0;
-    // 「拡散」は1回の投稿を重くする。頭打ちの位置は動かさず、そこへ早く届く
-    return Math.min(1, (st.promo || 0) * (1 + skill(st, 'promo')) / c.cap);
-  }
-
-  /**
-   * 持ち込みで「持っている物」が選ばれる重み。
-   * 宣伝を撒くほど下がる＝図鑑の穴が埋まりやすくなる
-   */
-  function sellerOwnedPenalty(st) {
-    const c = st.cfg.promo;
-    if (!c || !c.enabled) return 1;
-    return 1 - promoRate(st) * c.ownedPenalty;
-  }
-
-  function generateOffers(st) {
-    const cfg = st.cfg;
-
-    // 処分品引取
-    const junkLot = rollLot(st, cfg.junk);
-    const junkSkill = 1 + skill(st, 'lot');
-    const junkCost = st.rng() < cfg.junk.freeChance ? 0
-      : Math.round(rInt(st.rng, cfg.junk.cost[0], cfg.junk.cost[1]) * junkSkill / 100) * 100;
-
-    // オークション（まとめ買い）
-    const bulkLot = rollLot(st, cfg.bulk);
-    const pr = cfg.bulk.priceRatio;
-    let bulkCost = Math.round(bulkLot.retail * (pr[0] + st.rng() * (pr[1] - pr[0]))
-      * (1 + skill(st, 'lot')) / 1000) * 1000;
-    bulkCost = Math.min(cfg.bulk.cap[1], Math.max(cfg.bulk.cap[0], bulkCost));
-
-    // オークション（単品入札）
-    const sw = Object.assign({}, cfg.single.tierWeights);
-    if (cfg.ultra.source === 'auction' || cfg.ultra.source === 'both') {
-      sw.ultra += cfg.single.ultraLateBonus * (st.week / cfg.totalWeeks); // 終盤ほど激レアが出る
-    } else {
-      sw.ultra = 0;
-    }
-    const tier = pickTier(st.rng, sw);
-    const target = pickTitle(st, tier,
-      { ownedPenalty: cfg.single.ownedPenalty * (1 - skill(st, 'unownedBias')) });
-    const ar = cfg.single.askRatio, rr = cfg.single.rivalRatio;
-    const singleCond = rollCond(st, 'single', target);
-    const singleMult = (cfg.condition && cfg.condition.enabled)
-      ? cfg.condition.grades[singleCond].mult : 1;
-    const singleOffer = target ? {
-      titleId: target.id, cond: singleCond,
-      current: Math.round(target.base * singleMult * (ar[0] + st.rng() * (ar[1] - ar[0])) / 1000) * 1000,
-      rival: Math.round(target.base * singleMult * (rr[0] + st.rng() * (rr[1] - rr[0]))),
-    } : null;
-
-    return {
-      junk: unlocked(st, 'junk')
-        ? { cost: junkCost, lot: junkLot, hint: `雑多な箱が${junkLot.count}点ほど` } : null,
-      bulk: unlocked(st, 'bulk')
-        ? { cost: bulkCost, lot: bulkLot,
-            hint: `${bulkLot.count}点セット。${bulkLot.titles.length >= 10 ? '中身は当たりかもしれない' : 'ガラクタが多そうだ'}` } : null,
-      single: unlocked(st, 'single') ? singleOffer : null,
-    };
-  }
-
-  function enterActionPhase(st) {
-    st.phase = 'action';
-    st.offers = generateOffers(st);
-  }
-
-  /**
-   * 行動を実行してターンを終える。
-   * key: 'bulk' | 'single' | 'junk' | 'organize' | 'rest'
-   * params: single のとき {bid}, organize のとき {wholesale:[uid], display:[uid], markdown:[uid]}
-   */
-  function doAction(st, key, params) {
-    if (st.phase !== 'action') return { ok: false, reason: 'phase' };
-    params = params || {};
-    const res = { ok: true, key, gained: [], spent: 0 };
-
-    if (key === 'bulk' || key === 'junk') {
-      const offer = st.offers[key];
-      if (!offer) return { ok: false, reason: 'locked' };
-      if (st.cash < offer.cost) return { ok: false, reason: 'cash' };
-      st.cash -= offer.cost;
-      st.totals.purchases += offer.cost;
-      res.spent = offer.cost;
-
-      // 価値の高い順に棚へ入れ、枠に入りきらない分はその場で業者に流す
-      const incoming = offer.lot.titles.map(id => st.byId.get(id))
-        .sort((a, b) => b.base - a.base);
-      let added = 0, overflow = 0, overflowCash = 0;
-      for (const t of incoming) {
-        if (addItem(st, t, { source: key })) { added++; res.gained.push(t.id); }
-        else {
-          // 棚に入れずそのまま業者行きなので図鑑には載らない
-          overflow++; st.totals.overflow++;
-          // 棚に入らず直行するので状態は引かない（並品として流す）
-          overflowCash += Math.round(t.base * st.cfg.wholesaleRatio);
-        }
-      }
-      for (let i = 0; i < offer.lot.junkCount; i++) {
-        if (freeSlots(st) > 0) { st.inv.push(makeJunk(st)); added++; }
-        else { overflow++; overflowCash += st.cfg.junkValue; }
-      }
-      if (overflowCash) { st.cash += overflowCash; st.totals.wholesale += overflowCash; }
-      res.overflow = overflow;
-      res.overflowCash = overflowCash;
-      // 業者との取引は誰も見ていないが、近所の人の処分品を引き取るのは町に付き合うこと
-      if (key === 'junk') rep(st, st.cfg.reputation.gain.junkLot);
-      const label = key === 'bulk' ? 'まとめ買い' : '処分品引取';
-      log(st, key, `${label}: ${added}点を棚に入れた（うちソフト${res.gained.length}点）`
-        + (overflow ? ` ※枠に入らない${overflow}点はその場で業者に流した（+${overflowCash.toLocaleString()}円）` : ''),
-        -offer.cost + overflowCash);
-
-    } else if (key === 'single') {
-      const offer = st.offers.single;
-      if (!offer) return { ok: false, reason: 'nooffer' };
-      const bid = Math.max(0, Math.round(params.bid || 0));
-      if (bid < offer.current) return { ok: false, reason: 'lowbid' };
-      if (bid > st.cash) return { ok: false, reason: 'cash' };
-      const t = st.byId.get(offer.titleId);
-      if (bid >= offer.rival) {
-        if (freeSlots(st) <= 0) return { ok: false, reason: 'slots' };
-        const paid = Math.round(Math.min(bid, Math.max(offer.current, offer.rival))
-          * (1 + skill(st, 'bid')));                                    // 二位価格に近い決着
-        st.cash -= paid;
-        st.totals.purchases += paid;
-        res.spent = paid;
-        res.won = true;
-        res.gained.push(t.id);
-        addItem(st, t, { display: t.tier !== 'ultra', cond: offer.cond });
-        log(st, 'single', `落札: 「${t.name}」`, -paid);
-      } else {
-        res.won = false;
-        log(st, 'single', `競り負け: 「${t.name}」（${offer.rival.toLocaleString()}円で他者が落札）`, 0);
-      }
-
-    } else if (key === 'organize') {
-      if (params.wholesale && params.wholesale.length) wholesale(st, params.wholesale);
-      for (const uid of params.display || []) setDisplay(st, uid, true);
-      for (const uid of params.store || []) setDisplay(st, uid, false);
-      for (const uid of params.markdown || []) setMarkdown(st, uid, true);
-
-    } else if (key === 'order') {
-      if (!unlocked(st, 'order')) return { ok: false, reason: 'locked' };
-      // まとめて頼める。titleIds でも titleId でも受ける
-      const ids = params.titleIds || [params.titleId];
-      const max = Math.max(1, st.cfg.order.batch || 1);
-      const done = [];
-      let spent = 0;
-      let stop = null;                                    // 途中で止まった理由
-      for (const id of ids.slice(0, max)) {
-        const t = st.byId.get(id);
-        if (!t) continue;
-        if (!st.registered.has(t.id)) continue;          // 知らない物は頼めない
-        if (ownedIds(st).has(t.id)) continue;
-        if (freeSlots(st) <= 0) { stop = 'slots'; break; }
-        const cost = orderCost(st, t);
-        if (st.cash < cost) { stop = 'cash'; break; }
-        st.cash -= cost;
-        st.totals.purchases += cost;
-        st.totals.orderCount++;
-        spent += cost;
-        addItem(st, t, { cond: st.cfg.condition.orderCond });   // 激レアは fixCond で美品になる
-        res.gained.push(t.id);
-        done.push(t.name);
-      }
-      if (!done.length) return { ok: false, reason: stop || 'none' };
-      res.spent = spent;
-      log(st, 'order', `取り寄せ: ${done.join('、')}が届いた`, -spent);
-
-    } else if (key === 'upgrade') {
-      const up = (st.cfg.upgrades || []).find(u => u.id === params.id);
-      if (!up) return { ok: false, reason: 'nosuch' };
-      if (!unlocked(st, 'expand')) return { ok: false, reason: 'locked' };
-      if ((st.upgrades[up.id] || 0) >= up.max) return { ok: false, reason: 'max' };
-      if (st.cash < up.cost) return { ok: false, reason: 'cash' };
-      st.cash -= up.cost;
-      st.totals.expand += up.cost;
-      st.upgrades[up.id] = (st.upgrades[up.id] || 0) + 1;
-      const e = up.effect;
-      if (e.shelfSlots) st.cfg = Object.assign({}, st.cfg, { shelfSlots: st.cfg.shelfSlots + e.shelfSlots });
-      if (e.displaySlots) st.cfg = Object.assign({}, st.cfg, { displaySlots: st.cfg.displaySlots + e.displaySlots });
-      if (e.passive) st.passiveBonus += e.passive;
-      if (e.customers) st.clerkBonus += e.customers;
-      res.spent = up.cost;
-      log(st, 'upgrade', `${up.name}（${st.upgrades[up.id]}/${up.max}）`, -up.cost);
-
-    } else if (key === 'promo') {
-      if (!unlocked(st, 'promo')) return { ok: false, reason: 'locked' };
-      const c = st.cfg.promo;
-      const capped = st.promo >= c.cap;
-      if (!capped) st.promo++;
-      rep(st, c.rep * (1 + skill(st, 'promo')));
-      log(st, 'promo', capped ? rPick(st.rng, PROMO_CAPPED) : rPick(st.rng, PROMO_LINES), 0);
-
-    } else if (key === 'rest') {
-      log(st, 'rest', '店を閉めて休んだ', 0);
-    } else {
-      return { ok: false, reason: 'unknown' };
-    }
-
-    endTurn(st);
-    return res;
-  }
-
-  // ============================================================
-  // ターン／週の進行
-  // ============================================================
-  /**
-   * 常連イベントの代役。仕様書 8 節では常連キャラのイベント報酬で激レアが手に入るが、
-   * プロトタイプでは常連を作らないので「一定週ごとに未所持の激レアが1本手に入る」で代用する。
-   */
-  function tryUltraEvent(st) {
-    const u = st.cfg.ultra;
-    if (u.source !== 'event' && u.source !== 'both') return;   // 既定では常連イベントが担うので発生しない
-    // 予定週になったら「譲ってもらえる約束」が1件たまる
-    if (st.ultraEvents + st.ultraDue < u.maxEvents
-        && st.week >= u.eventFromWeek
-        && (st.week - u.eventFromWeek) % u.eventEveryWeeks === 0) {
-      st.ultraDue++;
-    }
-    if (st.ultraDue <= 0) return;
-    if (freeSlots(st) <= 0) return;        // 棚が空くまで持ち越す（約束は消えない）
-    const t = pickTitle(st, 'ultra', { ownedPenalty: 0.02 });
-    if (!t) return;
-    st.ultraDue--;
-    st.ultraEvents++;
-    addItem(st, t, { source: 'event' });
-    log(st, 'event', `常連客からの譲渡: 「${t.name}」を手に入れた`, 0);
-  }
-
-  function endTurn(st) {
-    checkReveals(st);
-    if (st.half === 0) {
-      st.half = 1;
-      startTurn(st);
-    } else {
-      tryUltraEvent(st);
-      const week = payRent(st);
-      if (st.ended) return;
-      st.history.weeks.push(week);
-      st.week++;
-      st.half = 0;
-      if (st.week > st.cfg.totalWeeks) finish(st);
-      else startTurn(st);
-    }
-  }
-
-  /** 週末に棚の中身を評価する。珍しいものを置いている店は評判が上がる */
-  function appraiseShelf(st) {
-    const c = st.cfg.reputation;
-    if (!c.enabled) return;
-    const shelf = st.inv.filter(i => i.display);
-    const good = shelf.filter(i => {
-      const t = titleOf(st, i);
-      return t && (t.tier === 'rare' || t.tier === 'ultra');
-    }).length;
-    const junk = shelf.filter(i => i.junk).length;
-    // 非売品として抱えているレアも「あの店にはある」と伝わる
-    const kept = st.inv.filter(i => {
-      const t = titleOf(st, i);
-      return i.protect && t && (t.tier === 'rare' || t.tier === 'ultra');
-    }).length;
-    let d = c.gain.weeklyDrift;
-    // 棚がどれだけ埋まっているか。品揃えのある店は客足が戻る
-    d += Math.min(1, shelf.length / Math.max(1, displayCap(st))) * c.gain.shelfFull;
-    d += Math.min(6, good + kept * 0.5) * c.gain.rareOnShelf;
-    d += Math.min(10, junk) * c.gain.junkOnShelf;
-    if (!forSale(st).length) d += c.gain.emptyShelf;
-    rep(st, d);
-  }
-
-  /** 立替を受ける。借りられた額を返す */
-  function borrow(st, want) {
-    const c = st.cfg.credit;
-    if (!c || !c.enabled) return 0;
-    const room = Math.max(0, c.limit - st.debt);
-    const got = Math.min(room, Math.max(0, Math.ceil(want)));
-    if (!got) return 0;
-    st.cash += got;
-    st.debt += got;
-    st.totals.borrowed += got;
-    log(st, 'credit', `業者に${got.toLocaleString()}円を立て替えてもらった（残債${st.debt.toLocaleString()}円）`, got);
-    return got;
-  }
-
-  /** 手元に reserve を残して、返せるだけ返す */
-  function repay(st) {
-    const c = st.cfg.credit;
-    if (!c || !c.enabled || st.debt <= 0) return 0;
-    const spare = st.cash - c.reserve;
-    if (spare <= 0) return 0;
-    const paid = Math.min(spare, st.debt);
-    st.cash -= paid;
-    st.debt -= paid;
-    st.totals.repaid += paid;
-    log(st, 'credit', `立替を${paid.toLocaleString()}円返した（残債${st.debt.toLocaleString()}円）`, -paid);
-    return paid;
-  }
-
-  /** 手放す順番。ガラクタ→重複→安いものの順 */
-  function dumpOrder(st) {
-    const owned = new Map();
-    for (const i of st.inv) if (!i.junk) owned.set(i.titleId, (owned.get(i.titleId) || 0) + 1);
-    return st.inv.slice().sort((a, b) => {
-      const rank = it => it.junk ? 0 : (owned.get(it.titleId) > 1 ? 1 : 2);
-      return rank(a) - rank(b) || priceOf(st, a) - priceOf(st, b);
-    });
-  }
-
-  /**
-   * 最後の精算。現金で足りなければ在庫を叩いて返す。
-   * ここが無いと、最終週に上限まで借りて買うのが常に得になってしまう
-   */
-  function settleDebt(st) {
-    if (st.debt <= 0) return;
-    const paid = Math.min(st.cash, st.debt);
-    st.cash -= paid; st.debt -= paid;
-    let sold = 0;
-    for (const item of dumpOrder(st)) {
-      if (st.debt <= 0) break;
-      const t = titleOf(st, item);
-      const price = t
-        ? Math.round(t.base * condMult(st, item) * st.cfg.forcedSaleRatio)
-        : st.cfg.junkValue;
-      removeItem(st, item.uid, 'forced');
-      st.debt = Math.max(0, st.debt - price);
-      sold++;
-    }
-    if (sold) log(st, 'credit', `残債の精算で在庫${sold}点を手放した`, 0);
-    else log(st, 'credit', `残債を精算した（${paid.toLocaleString()}円）`, -paid);
-  }
-
-  function payRent(st) {
-    appraiseShelf(st);
-    const rent = st.cfg.rent;
-    let forced = 0, forcedCount = 0;
-
-    // 在庫を叩き売る前に、まず立て替えてもらう。棚を減らさずに済む道を先に通す
-    if (st.cash < rent) borrow(st, rent - st.cash);
-
-    if (st.cash < rent) {
-      const order = dumpOrder(st);
-      for (const item of order) {
-        if (st.cash >= rent) break;
-        const t = titleOf(st, item);
-        const price = t
-          ? Math.round(t.base * condMult(st, item) * st.cfg.forcedSaleRatio)
-          : st.cfg.junkValue;
-        removeItem(st, item.uid, 'forced');
-        st.cash += price;
-        forced += price; forcedCount++;
-      }
-      if (forcedCount) {
-        rep(st, st.cfg.reputation.gain.forcedSale);
-        log(st, 'forced', `家賃のため在庫${forcedCount}点を強制売却`, forced);
-      }
-    }
-
-    const snapshot = Object.assign(stats(st), { forcedCount, forcedAmount: forced });
-
-    if (st.cash < rent) {
-      log(st, 'rent', `家賃${rent.toLocaleString()}円を払えなかった。閉店。`, 0);
-      finish(st, 'bad');
-      snapshot.cash = st.cash;
-      snapshot.bankrupt = true;
-      return snapshot;
-    }
-
-    st.cash -= rent;
-    st.totals.rent += rent;
-
-    // 手数料は残債に乗る。返せるときに返しておかないと膨らむ
-    const cc = st.cfg.credit;
-    if (cc && cc.enabled && st.debt > 0) {
-      const fee = Math.round(st.debt * cc.interest);
-      if (fee > 0) {
-        st.debt += fee;
-        st.totals.interest += fee;
-        log(st, 'credit', `立替の手数料${fee.toLocaleString()}円（残債${st.debt.toLocaleString()}円）`, 0);
-      }
-    }
-    repay(st);
-    log(st, 'rent', `${st.week}週目の家賃を支払った`, -rent);
-    snapshot.cash = st.cash;
-    return snapshot;
-  }
-
-  function finish(st, forceEnding) {
-    // 体験版（50週未満）は達成度ではなく「ここまで」で終わる
-    if (st.cfg.totalWeeks < 50 && forceEnding !== 'bad' && !st.ended) {
-      const s0 = stats(st);
-      st.ended = true;
-      st.ending = 'demo';
-      st.result = s0;
-      log(st, 'end', `体験版はここまで。${st.cfg.totalWeeks}週で登録${s0.registered}本／所持${s0.owned}本。`, 0);
-      return;
-    }
-    st.ended = true;
-    st.phase = 'ended';
-    if (forceEnding !== 'bad') settleDebt(st);
-    const s = stats(st);
-    if (forceEnding === 'bad') st.ending = 'bad';
-    else if (s.owned >= s.total) st.ending = 'true';
-    else if (s.registered >= s.total) st.ending = 'normal';
-    else st.ending = 'incomplete';
-    st.result = Object.assign(s, { ending: st.ending });
-  }
-
-  /** 陳列棚から自動的に売れる分。判断は発生しない */
-  function resolvePassiveSales(st) {
-    const ps = st.cfg.passiveSales;
-    let lo = ps.count[0], hi = ps.count[1];
-    const rc = st.cfg.reputation;
-    if (rc.enabled) {
-      // 賑わいは評判に連動する。序盤の客足の伸びとも掛け合わせる
-      const center = byRep(st, rc.passive) + st.passiveBonus;
-      lo = Math.max(0, center - 2);
-      hi = center + 2;
-    } else if (ps.earlyCount) {
-      const t = Math.max(0, Math.min(1, (st.week - 1) / Math.max(1, (ps.fullFromWeek || 1) - 1)));
-      lo = ps.earlyCount[0] + t * (ps.count[0] - ps.earlyCount[0]);
-      hi = ps.earlyCount[1] + t * (ps.count[1] - ps.earlyCount[1]);
-    }
-    const n = rInt(st.rng, Math.round(lo), Math.round(hi));
-    let total = 0, sold = 0;
-    const names = [];
-    for (let i = 0; i < n; i++) {
-      const shelf = forSale(st);
-      if (!shelf.length) break;
-      const item = rWeighted(st.rng, shelf.map(x => [x, demandOf(st, x)]));
-      const t = titleOf(st, item);
-      const price = Math.round(priceOf(st, item)
-        * (ps.priceRange[0] + st.rng() * (ps.priceRange[1] - ps.priceRange[0])) / 100) * 100;
-      removeItem(st, item.uid, 'passive');
-      st.cash += price;
-      st.totals.sales += price;
-      st.totals.soldCount++;
-      total += price; sold++;
-      if (names.length < 3) names.push(t.name);
-    }
-    if (sold) {
-      log(st, 'passive', `店頭で${sold}本売れた（${names.join('、')}${sold > names.length ? ' ほか' : ''}）`, total);
-    }
-    st.lastPassive = { count: sold, total };
-    return { count: sold, total };
-  }
-
-  function startTurn(st) {
-    if (st.ended) return;
-    st.phase = 'shop';
-    // 開店直後だけは、プレイヤーが何もしないうちに在庫が減らないようにする
-    if (st.week > 1 || st.half > 0) resolvePassiveSales(st);
-    st.queue = buildQueue(st);
-    st.current = st.queue.shift() || null;
-    st.offers = null;
-    if (!st.current) enterActionPhase(st);
-  }
-
-  // ============================================================
-  // 初期化
-  // ============================================================
-  function createGame(opts) {
-    opts = opts || {};
-    const cfg = Object.assign({}, BALANCE, opts.balance || {});
-    const st = {
-      cfg,
-      rng: makeRng((opts.seed === undefined ? 1 : opts.seed) >>> 0),
-      seed: opts.seed === undefined ? 1 : opts.seed,
-      catalog: null, byId: new Map(),
-      week: 1, half: 0, phase: 'shop',
-      cash: cfg.startCash,
-      inv: [], uidSeq: 1,
-      registered: new Set(), soldOnce: new Set(),
-      queue: [], current: null, offers: null,
-      log: [], ended: false, ending: null, result: null,
-      history: { weeks: [], customers: [] },
-      ultraEvents: 0, ultraDue: 0, lost: {}, regulars: {}, buyBonus: 0,
-      upgrades: {}, passiveBonus: 0, clerkBonus: 0, skills: {}, skillOff: {}, reveals: {},
-      reputation: 0,
-      debt: 0,
-      promo: 0,
-      promoOpen: false,   // 瑠璃にアカウントを作ってもらったか
-      memories: {},       // イベントを完走した常連の id。周回で持ち越す
-      memoryOff: {},      // そのうち、いま切っているもの。絞るほど残りが濃くなる
-      totals: { sales: 0, purchases: 0, wholesale: 0, rent: 0, expand: 0, soldCount: 0, boughtCount: 0, orderCount: 0, acquired: 0, overflow: 0,
-                borrowed: 0, repaid: 0, interest: 0 },
-    };
-
-    st.catalog = Catalog.build(cfg.tiers, cfg.catalogSize, cfg.catalogSeed);
-    for (const s of st.catalog) st.byId.set(s.id, s);
-
-    // 初期在庫: 並品中心の売れ残り30本
-    for (let i = 0; i < cfg.startInventory; i++) {
-      const tier = pickTier(st.rng, { common: 0.8, mid: 0.2 });
-      const t = pickTitle(st, tier, { byDemand: true });
-      addItem(st, t, { display: true, source: 'start' });
-    }
-    // 前周からの引き継ぎ（opts.previous は carryFrom() の戻り値）
-    const prev = opts.previous;
-    if (prev) {
-      const co = cfg.carryOver;
-      if (co.registered && prev.registered) {
-        for (const id of prev.registered) if (st.byId.has(id)) st.registered.add(id);
-      }
-      if (co.skills && prev.skills) {
-        for (const id of prev.skills) st.skills[id] = true;
-        for (const id of prev.skillOff || []) st.skillOff[id] = true;
-      }
-      // 最後まで付き合った常連との記憶。次の周でその人に会いやすくなる
-      if (co.memories && prev.memories) {
-        for (const id of prev.memories) st.memories[id] = true;
-        for (const id of prev.memoryOff || []) st.memoryOff[id] = true;   // 絞り方も持ち越す
-      }
-      // 一度知ったことは知ったまま。次の周でもう一度明かされたりしない
-      if (co.reveals && prev.reveals) for (const k of prev.reveals) st.reveals[k] = { carried: true };
-      if (co.cash && prev.cash) st.cash += Math.round(prev.cash * co.cashRatio);
-      if (co.slots && prev.shelfSlots) {
-        st.cfg = cfg = Object.assign({}, cfg, { shelfSlots: Math.max(cfg.shelfSlots, prev.shelfSlots) });
-      }
-      st.carriedOver = true;
-    }
-    st.reputation = cfg.reputation.enabled ? cfg.reputation.start : cfg.reputation.max;
-    st.startRegistered = st.registered.size;
-    st.run = prev ? (prev.run || 1) + 1 : 1;
-    // 開店の一言。年齢には触れないが、嘘もついていない（「仕事を辞めた」＝定年退職）。
-    // 店の屋号でプレイヤーに姓を渡しておく。図鑑に埋めた伏線はこれと突き合わせて効く
-    log(st, 'start',
-      '叔父の店を引き継ぐことになった。事故だった。前に会ったときはあんなに元気だったのにな。'
-      + `看板は『${SHOP_NAME}』のまま。`
-      + 'ちょっと前に仕事を辞めてから暇だったし、しばらくやってみるつもりだ。'
-      + `　資金${st.cash.toLocaleString()}円、在庫${st.inv.length}点。`
-      + (prev ? `（前回の記録から図鑑${st.registered.size}本を引き継いだ）` : ''), 0);
-
-    startTurn(st);
-    return st;
-  }
-
-  return {
-    BALANCE, HALF_LABEL, createGame,
-    answer, doAction, endTurn,
-    stats, priceOf, demandOf, titleOf, ownedIds, displayed,
-    freeSlots, freeDisplay, countOf, orderCost, orderable, unlocked, setDisplay,
-    carryFrom: st => ({ registered: Array.from(st.registered), skills: Object.keys(st.skills),
-      skillOff: Object.keys(st.skillOff || {}),
-      reveals: Object.keys(st.reveals || {}), memories: Object.keys(st.memories || {}),
-      memoryOff: Object.keys(st.memoryOff || {}),
-      cash: st.cash, shelfSlots: st.cfg.shelfSlots, run: st.run }), setMarkdown, setProtect, wholesale, removeItem,
-    forSale, REGULARS, THRESHOLDS, repRate, byRep, availableUpgrades, skill, REVEALS, borrow, repay, resolveEvent, makeRegularCustomer, promoRate, sellerOwnedPenalty,
-    setMemory, activeMemories, setSkill, skillOn, displayCap, shelfCap,
-    condLabel, condMult, boostTier, boostCond,
-    /** 既に覚えている交渉術のイベントなら、差し替え用のセリフと金額を返す */
-    skillKnownNote: (st, e) =>
-      (e && e.skill && st.skills[e.skill] && e.skillKnown) ? e.skillKnown : null,
-    /** 判断が要らない客か（会話スキップの対象） */
-    skippable: c => !!c && (c.type === 'browser'
-      || (c.type === 'event' && c.event && c.event.type !== 'offer')),
-    promoOpen: st => !!st.promoOpen,
-  };
-});
-
-</script>
-<script>
-'use strict';
-/**
- * 自動プレイ用の方針。
- * 「安く仕入れて回転させ、終盤は売らずに集める」という想定プレイヤーの再現。
- * 資金カーブ検証（仕様書 10 節）の基準線として使う。
- */
-(function (root, factory) {
-  const E = (typeof module === 'object' && module.exports) ? require('./engine.js') : root.Engine;
-  const api = factory(E);
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.Policy = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (E) {
-
-  const TUNING = {
-    reserve: 80000,        // 家賃に加えて残しておきたい運転資金
-    slotBuffer: 3,         // 買い取り用に空けておく枠
-    keepFromWeek: 30,      // この週以降は単品を手放さない
-    orderFromWeek: 44,       // この週から取り寄せでコレクションの穴を埋める
-    protectFromWeek: 30,     // この週以降は全タイトルの最後の1本を非売品にする
-    protectRareFromWeek: 12, // レアはこの週から確保する
-    rareSellUntil: 38,     // レアを売っていいのはこの週まで
-    singleBidRatio: 0.85,  // 単品入札の入札額（基準相場比）
-    junkMinSlots: 6,       // 処分品引取に必要な空き枠（点数が減ったので緩めた）
-    bulkMinSlots: 8,       // まとめ買いに必要な空き枠（あふれた分は業者行き）
-    expandWhenSlotsBelow: 10,
-    clerkCashFloor: 450000,  // これだけ現金があるなら人手を入れる
-    expandReserveRent: 3,    // 棚拡張後に残しておく家賃の倍数
-    singleReserveRent: 2.5,  // 単品入札に残しておく家賃の倍数
-    singleCashFloor: 400000, // これだけ現金が残るならレア狙いを優先する
-    warChestFromWeek: 99,    // 終盤の仕入れ抑制（仕入れは売り物の供給源でもあるため既定は無効）
-    weekdayFloor: 1.0,     // 平日でも家賃分は必ず残す（週末の投げ売りを防ぐ）
-    dumpStaleWeeks: 10,    // これ以上寝ている並品は卸す
-    promoUntilWeek: 50,    // 宣伝に手番を割くのはこの週まで
-    promoWhileRepBelow: 100, // 評判がこれ未満なら仕入れより宣伝を優先する
-    // 上の2つは「撒き続ける」設定。宣伝が +2.5 になって手番に見合うようになったので、
-    // 空いた手番は宣伝に回すのが正しくなった（20週/評判40 だと 294k、撒き続けて 394k）
-  };
-
-  const isDup = (st, titleId) => E.countOf(st, titleId) > 1;
-
-  /** 客が指名したソフトを売るか */
-  function sellDecision(st, c) {
-    const t = st.byId.get(c.titleId);
-    const weeksLeft = st.cfg.totalWeeks - st.week;
-    if (isDup(st, t.id)) return true;                       // 重複は常に売る
-    if (st.cash < st.cfg.rent) return true;                 // 家賃が危ないなら何でも売る
-    if (st.week >= TUNING.keepFromWeek) return false;       // 終盤は手放さない
-    if (t.tier === 'ultra') return false;
-    if (t.tier === 'rare') return st.week <= TUNING.rareSellUntil && c.offer >= t.base * 1.0;
-    return weeksLeft > 5;                                   // 並品・中堅は回転させる
-  }
-
-  /** 持ち込みを買い取るか */
-  /** 状態を織り込んだ実際の価値。状態を見ないと傷あり品ばかり買う逆選択が起きる */
-  const worth = (st, t, cond) => t.base * E.condMult(st, { cond });
-
-  function buyDecision(st, c) {
-    const t = st.byId.get(c.titleId);
-    if (E.freeSlots(st) <= TUNING.slotBuffer) return false;
-    if (st.cash - c.ask < st.cfg.rent + TUNING.reserve) return false;
-    const owned = E.ownedIds(st).has(t.id);
-    // 未所持なら図鑑のために相場近くまで出す。所持済みは転売できる値段でだけ買う
-    return c.ask <= worth(st, t, c.cond) * (owned ? 0.55 : 0.85);
-  }
-
-  /**
-   * 陳列と非売品札の付け替え（無料操作）。
-   * 「最後の1本を売り物にするか」がこのゲームの中心的な判断なので、ここが方針の核になる。
-   */
-  function arrangeDisplay(st) {
-    const cfg = st.cfg;
-    const willing = [];
-    // 同一タイトルの所持数を数え、1本目だけを守る候補にする
-    const seen = new Map();
-    // ジャンクを後ろへ。同じタイトルなら状態の良い順に見て、
-    // 手元に残す1本が一番良い状態になるようにする
-    const order = st.inv.slice().sort((a, b) =>
-      (b.junk ? 0 : 1) - (a.junk ? 0 : 1) || (b.cond || 0) - (a.cond || 0));
-    for (const item of order) {
-      if (item.junk) { item.protect = false; continue; }
-      const t = E.titleOf(st, item);
-      const nth = (seen.get(t.id) || 0) + 1;
-      seen.set(t.id, nth);
-      const isLast = nth === 1;                     // このタイトルの確保用の1本
-      // 重複は常に売り物。最後の1本は、守る時期に入っていれば非売品にする
-      // 総週数が短い体験版では確保の局面まで進まない。売り続けるのが正しい
-      const guard = isLast && (st.week >= TUNING.protectFromWeek
-        || t.tier === 'ultra'
-        || (t.tier === 'rare' && st.week >= TUNING.protectRareFromWeek));
-      item.protect = guard;
-      if (!guard) willing.push(item);
-    }
-    willing.sort((a, b) => E.demandOf(st, b) * E.priceOf(st, b) - E.demandOf(st, a) * E.priceOf(st, a));
-    // 非売品は保管に回し、陳列枠は売り物だけで埋める
-    const show = new Set(willing.slice(0, E.displayCap(st)).map(i => i.uid));
-    for (const item of st.inv) item.display = show.has(item.uid);
-  }
-
-  /** 整理で卸す在庫を選ぶ */
-  function pickDump(st, need) {
-    const owned = new Map();
-    for (const i of st.inv) if (!i.junk) owned.set(i.titleId, (owned.get(i.titleId) || 0) + 1);
-    const cand = [];
-    for (const item of st.inv) {
-      if (item.junk) { cand.push({ item, score: 0, value: st.cfg.junkValue }); continue; }
-      const t = E.titleOf(st, item);
-      const dup = owned.get(t.id) > 1;
-      // 最後の1本は卸さない。図鑑の所持率がそのまま削れるため
-      if (!dup) continue;
-      cand.push({ item, score: 1, value: Math.round(t.base * st.cfg.wholesaleRatio) });
-      owned.set(t.id, owned.get(t.id) - 1);
-    }
-    // ガラクタ → 重複 → 寝ている並品 の順。資金目当てなら高い順に足りるまで
-    cand.sort((a, b) => a.score - b.score || b.value - a.value);
-    if (need === undefined) return cand.map(c => c.item.uid);
-    let sum = 0;
-    const out = [];
-    for (const c of cand.slice().sort((a, b) => b.value - a.value)) {
-      if (sum >= need) break;
-      out.push(c.item.uid); sum += c.value;
-    }
-    // 資金を作るついでにガラクタも捨てる
-    for (const c of cand) if (c.score === 0 && !out.includes(c.item.uid)) out.push(c.item.uid);
-    return out;
-  }
-
-  /** 常連イベントへの応答。offer 型だけが判断を要する */
-  function eventDecision(st, c) {
-    if (c.event.type !== 'offer') return true;
-    const t = st.catalog.find(x => x.name === c.event.title);
-    if (!t) return false;
-    const price = Math.round(t.base * c.event.priceRatio / 100) * 100;
-    if (E.freeSlots(st) <= 0) return false;
-    if (st.cash - price < st.cfg.rent) return false;
-    // 常連の持ち込みは相場より安い。未所持なら多少高くても取る
-    const limit = E.ownedIds(st).has(t.id) ? t.base * 0.5 : t.base * 0.8;
-    return price <= limit;
-  }
-
-  /** 行動フェイズの選択 */
-  function chooseAction(st) {
-    const cfg = st.cfg, o = st.offers;
-    const slots = E.freeSlots(st);
-    const owned = E.ownedIds(st);
-    const weeksLeft = cfg.totalWeeks - st.week;
-    // 前半（平日）は仕入れに攻める。後半（週末）は家賃を確保してから動く
-    // ＝仕様書 2 節「前半に安く仕入れて後半に売る」
-    const weekend = st.half === 1;
-    // 終盤は残り週数ぶんの家賃を握っておく。ここを削ると最後に在庫を毟られて所持率が落ちる
-    const warChest = st.week >= TUNING.warChestFromWeek
-      ? cfg.rent * Math.max(0, weeksLeft + 1) : 0;
-    // 現金化の判断に使う下限（家賃を払えるか）
-    const rentFloor = weekend ? cfg.rent + TUNING.reserve : Math.round(cfg.rent * TUNING.weekdayFloor);
-    // 仕入れの判断に使う下限（終盤は残り家賃を握る分だけ厳しくなる）
-    const floor = rentFloor + warChest;
-
-    // 1. 週末に家賃が足りない → 整理して現金化
-    if (st.cash < rentFloor) {
-      const uids = pickDump(st, rentFloor - st.cash);
-      if (uids.length) return { key: 'organize', params: { wholesale: uids } };
-    }
-
-    // 2. 取り寄せ: 図鑑に載っているのに手元に無いものを、安い順に埋めていく。
-    //    仕様書 3 節の「最後の数本を狙い撃つ」局面はここで作られる
-    if (st.week >= TUNING.orderFromWeek && slots > 0) {
-      const want = E.orderable(st)
-        .map(t => ({ t, cost: E.orderCost(st, t) }))
-        .filter(x => st.cash - x.cost >= floor)
-        .sort((a, b) => a.cost - b.cost);
-      if (want.length) {
-        // 手番が足りないので、頼めるだけまとめて頼む
-        const batch = [];
-        let budget = st.cash - floor;
-        for (const w of want) {
-          if (batch.length >= (cfg.order.batch || 1) || batch.length >= slots) break;
-          if (budget - w.cost < 0) break;
-          budget -= w.cost;
-          batch.push(w.t.id);
-        }
-        if (batch.length) return { key: 'order', params: { titleIds: batch } };
-      }
-    }
-
-    // 3. 未所持のレア・激レアが出ていれば、資金に余裕がある限り最優先で取りに行く。
-    //    まとめ図鑑を埋める本数はここでしか稼げないため、中盤以降はまとめ買いより優先する
-    const single = o.single ? st.byId.get(o.single.titleId) : null;
-    const singleBid = single
-      ? Math.round(worth(st, single, o.single.cond) * TUNING.singleBidRatio) : 0;
-    const singleWanted = single && !owned.has(single.id)
-      && (single.tier === 'rare' || single.tier === 'ultra')
-      && slots > 0
-      && st.cash - singleBid >= cfg.rent * TUNING.singleReserveRent + TUNING.reserve;
-    if (singleWanted && st.cash - singleBid >= TUNING.singleCashFloor) {
-      return { key: 'single', params: { bid: singleBid } };
-    }
-
-    // 4. まとめ買い＝収益の本体。枠に入りきらない分は業者に流れるので資金だけ見る
-    if (o.bulk && st.cash - o.bulk.cost >= floor && weeksLeft > 2
-        && slots >= TUNING.bulkMinSlots) {
-      return { key: 'bulk', params: {} };
-    }
-
-    // 5. 設備と人手。詰まっているところから順に買う
-    if (E.unlocked(st, 'expand') && weeksLeft > 4) {
-      const avail = E.availableUpgrades(st);
-      const pick = id => avail.find(u => u.id === id);
-      const afford = u => u && st.cash - u.cost >= cfg.rent * TUNING.expandReserveRent + TUNING.reserve;
-      // 棚が詰まっている → 倉庫、陳列枠が埋まっている → 陳列棚、その後は売上と接客
-      const order = [];
-      if (slots < TUNING.expandWhenSlotsBelow) order.push('warehouse');
-      if (E.freeDisplay(st) <= 0) order.push('shelf');
-      // 資金に余裕があるうちに人手を入れる。接客が増えると常連にも会いやすくなる
-      if (st.cash > TUNING.clerkCashFloor) order.push('clerk');
-      order.push('storefront', 'warehouse', 'shelf', 'clerk');
-      for (const id of order) {
-        const u = pick(id);
-        if (afford(u)) return { key: 'upgrade', params: { id } };
-      }
-    }
-
-    // 6. 序盤の単品入札（資金に余裕があるときだけ）
-    if (singleWanted) return { key: 'single', params: { bid: singleBid } };
-
-    // 6.5. 宣伝: 評判が低いうちは、1手番の使い道として仕入れより効く。
-    //      評判は来客数と値札売りの本数を決めるので、序盤ほど利回りが良い
-    if (canPromo(st) && st.week <= TUNING.promoUntilWeek
-        && st.reputation < TUNING.promoWhileRepBelow) {
-      return { key: 'promo', params: {} };
-    }
-
-    // 7. 処分品引取: 枠が余っているとき。ただ働きでも在庫は増える
-    if (o.junk && slots >= TUNING.junkMinSlots && weeksLeft > 2
-        && (st.cash - o.junk.cost >= floor || o.junk.cost === 0)) {
-      return { key: 'junk', params: {} };
-    }
-
-    // 8. それ以外は整理（枠を空けて次の仕入れに備える）
-    const uids = pickDump(st);
-    if (uids.length) return { key: 'organize', params: { wholesale: uids } };
-
-    // 9. 整理する物も無ければ宣伝。休むよりは店の名前が広がる
-    if (canPromo(st)) return { key: 'promo', params: {} };
-    return { key: 'rest', params: {} };
-  }
-
-  /**
-   * 在庫を叩き売る前に立て替えを頼む。
-   * 棚を減らすと値札売りが減り、収入が落ちてさらに叩き売る螺旋に入る。
-   * 立替は在庫を減らさないので、ここで先に通しておく
-   */
-  function maybeBorrow(st) {
-    const c = st.cfg.credit;
-    if (!c || !c.enabled) return 0;
-    const cfg = st.cfg;
-    const rentFloor = st.half === 1
-      ? cfg.rent + TUNING.reserve : Math.round(cfg.rent * TUNING.weekdayFloor);
-    if (st.cash >= rentFloor) return 0;
-    return E.borrow(st, rentFloor - st.cash);
-  }
-
-  /**
-   * 家賃に消える立替では螺旋は切れない。収入は陳列品の「単価」で決まるので、
-   * ロットを買う金として借りられて初めて意味がある。
-   * offers は行動フェイズに入ってから立つので、ここは chooseAction の直前で呼ぶ
-   */
-  function borrowForStock(st) {
-    const c = st.cfg.credit;
-    if (!c || !c.enabled || !c.stockUntilWeek || st.week > c.stockUntilWeek) return 0;
-    const o = st.offers;
-    if (!o || !o.bulk || E.freeSlots(st) < TUNING.bulkMinSlots) return 0;
-    const rentFloor = st.half === 1
-      ? st.cfg.rent + TUNING.reserve : Math.round(st.cfg.rent * TUNING.weekdayFloor);
-    const need = o.bulk.cost + rentFloor - st.cash;
-    return need > 0 ? E.borrow(st, need) : 0;
-  }
-
-  /** まだ宣伝が効く余地があるか */
-  function canPromo(st) {
-    const c = st.cfg.promo;
-    return !!(c && c.enabled && E.unlocked(st, 'promo') && (st.promo || 0) < c.cap);
-  }
-
-  /** 1ターン進める */
-  function playTurn(st) {
-    arrangeDisplay(st);
-    maybeBorrow(st);
-    while (st.phase === 'shop' && st.current) {
-      const c = st.current;
-      if (c.type === 'buyer') E.answer(st, sellDecision(st, c));
-      else if (c.type === 'seller') E.answer(st, buyDecision(st, c));
-      else if (c.type === 'event') E.answer(st, eventDecision(st, c));
-      else E.answer(st, false);
-    }
-    if (st.phase === 'action') {
-      borrowForStock(st);
-      const a = chooseAction(st);
-      const r = E.doAction(st, a.key, a.params);
-      if (!r.ok) E.doAction(st, 'rest', {});   // 失敗したら休むで確実にターンを消費
-      // 仕入れた直後にもう一度並べ直す。そうしないと、いま買った美品が
-      // 次のターンまで守られず、手元の傷あり品のほうに非売品札が付いたままになる
-      if (!st.ended) arrangeDisplay(st);
-    }
-  }
-
-  function playAll(st) {
-    let guard = 0;
-    while (!st.ended && guard++ < 500) playTurn(st);
-    return st;
-  }
-
-  return { TUNING, playTurn, playAll, arrangeDisplay, chooseAction, sellDecision, buyDecision, eventDecision, pickDump, maybeBorrow, borrowForStock };
-});
-
-</script>
-<script>
-'use strict';
-/* ブラウザ用の最小UI。仕様書 10 節のとおり「表とボタンのみ」 */
 (function () {
-  const E = window.Engine, P = window.Policy;
-  let st = null;
-  const selected = new Set();
-
+  const SRC = window.EditorData;                 // { software, regulars }
+  const KEY = 'crossroad-script-desk';
   const $ = id => document.getElementById(id);
-
-  /**
-   * 会話スキップ。周回すると同じイベントを何度も読むことになるので、
-   * 「判断が要らない客」だけ自動で進める。何が起きたかはログに残り、
-   * 飛ばした分は要約カードで見える。判断が要る客（買う／売る／取引）は飛ばさない。
-   */
-  const SKIP_KEY = 'gameshop.skipTalk';
-  let skipTalk = false;
-  try { skipTalk = localStorage.getItem(SKIP_KEY) === '1'; } catch (e) { /* 使えなくても動く */ }
-  let skipped = [];   // 直近に飛ばしたログ行
-  let readReveals = new Set();   // 読み終えた種明かし（この周のあいだだけ覚える）
-
-  /** 種明かしのカード。閉じるまで店内の先頭に残る */
-  function revealCard(key, onClose) {
-    const r = E.REVEALS[key];
-    if (!r) return null;
-    const card = el('div', 'card event');
-    card.appendChild(el('div', 'who', r.title));
-    for (const para of r.text.split('\n\n')) {
-      card.appendChild(el('p', 'detail-body', para));
-    }
-    if (onClose) {
-      const row = el('div', 'row');
-      row.appendChild(btn('閉じる', onClose, true));
-      card.appendChild(row);
-    }
-    return card;
-  }
-  const yen = n => (n < 0 ? '-' : '') + '¥' + Math.abs(Math.round(n)).toLocaleString('ja-JP');
   const el = (tag, cls, text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
-    if (text !== undefined) e.textContent = text;
+    if (text != null) e.textContent = text;
     return e;
   };
-  const tierCls = t => 'tier-' + t;
-  /** 状態の見せ方。美品は良い色、傷ありは沈める */
-  const condCls = item => (item && item.cond != null)
-    ? (item.cond === 2 ? 'ok' : item.cond === 0 ? 'warn' : 'sub') : 'sub';
-  /** 「美品（相場の125%）」のような注記 */
-  function condNote(st2, cond) {
-    const c = st2.cfg.condition;
-    if (!c || !c.enabled || cond == null || !c.grades[cond]) return '';
-    const g = c.grades[cond];
-    return `${g.label}（相場の${Math.round(g.mult * 100)}%）`;
+  const clone = o => JSON.parse(JSON.stringify(o));
+
+  const ORIGINAL = Object.freeze({ software: clone(SRC.software), regulars: clone(SRC.regulars) });
+  let work = clone(SRC);
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved) work = JSON.parse(saved);
+  } catch (e) { /* 下書きが読めなくても、元データで始められればいい */ }
+
+  // ── パスで読み書きする（'titles.3.details' のような文字列で場所を指す） ──
+  const dig = (root, path) => path.split('.').reduce((o, k) => (o == null ? o : o[k]), root);
+  function put(root, path, value) {
+    const ks = path.split('.');
+    const last = ks.pop();
+    ks.reduce((o, k) => o[k], root)[last] = value;
   }
+  const now = (file, path) => dig(work[file], path);
+  const was = (file, path) => dig(ORIGINAL[file], path);
+  const changed = (file, path) => now(file, path) !== was(file, path);
 
-  // ---------------- 状態バー ----------------
-  function renderStat() {
-    const s = E.stats(st);
-    const rentSoon = st.half === 1;
-    $('stat').innerHTML = '';
-    const add = (label, value, cls) => {
-      const d = el('div');
-      d.appendChild(el('span', 'sub', label + ' '));
-      d.appendChild(el('b', cls, value));
-      $('stat').appendChild(d);
-    };
-    add('周', `${st.run || 1}周目` + (st.startRegistered ? `（図鑑${st.startRegistered}本から）` : ''));
-    add('週', `${s.week} / ${st.cfg.totalWeeks}`);
-    if (st.cfg.reputation.enabled) {
-      const r = s.reputation;
-      const label = r >= 85 ? '名店' : r >= 65 ? '評判の店' : r >= 40 ? '知られてきた'
-                  : r >= 20 ? '常連がつき始めた' : r >= 8 ? '細々と' : '寂れている';
-      add('評判', `${Math.round(r)} ${label}`, r >= 40 ? 'ok' : r < 8 ? 'warn' : null);
-    }
-    add('ターン', E.HALF_LABEL[s.half]);
-    add('資金', yen(s.cash), s.cash < st.cfg.rent ? 'warn' : null);
-    add('家賃', yen(st.cfg.rent) + (rentSoon ? ' 今週末' : ''), rentSoon ? 'warn' : null);
-    if (s.debt > 0) {
-      const c = st.cfg.credit;
-      add('残債', yen(s.debt) + `（週${Math.round(c.interest * 100)}%）`, 'warn');
-    }
-    const learned = Object.keys(st.skills || {}).filter(k => E.skillOn(st, k));
-    if (learned.length) {
-      add('交渉術', learned.map(k => st.cfg.skills[k].name).join('・'), 'ok');
-    }
-    if (st.cfg.promo.enabled && s.promo) {
-      const cap = st.cfg.promo.cap;
-      add('宣伝', `${s.promo} / ${cap}` + (s.promo >= cap ? '（頭打ち）' : ''),
-        s.promo >= cap ? null : 'ok');
-    }
-    const ups = Object.values(st.upgrades || {}).reduce((a, b) => a + b, 0);
-    if (ups) add('設備', `${ups}件` + (st.clerkBonus ? `／店員${st.clerkBonus}人` : ''));
-    add('在庫', `${s.inventory} / ${s.slots}` + (s.junk ? `（雑${s.junk}）` : ''));
-    add('陳列', `${s.displayed} / ${s.displaySlots}`);
-    add('図鑑 登録', `${s.registered} / ${s.total}（${Math.round(s.registeredRate * 100)}%）`);
-    add('所持', `${s.owned} / ${s.total}（${Math.round(s.ownedRate * 100)}%）`,
-      s.ownedRate >= 1 ? 'ok' : null);
-  }
+  // ── 何を編集できるか。ここが台本机の目次になる ─────────────────
+  const SELF = ORIGINAL.software.lore.self;
+  const UNCLE = ORIGINAL.software.lore.uncle;
 
-  // ---------------- 店内（フェイズ） ----------------
-  function renderPhase() {
-    const box = $('phase');
-    box.innerHTML = '';
-
-    if (skipped.length) {
-      const c = el('div', 'card');
-      c.appendChild(el('div', 'who', `会話を${skipped.length}件飛ばしました`));
-      for (const l of skipped) {
-        const d = el('div', 'sub');
-        d.appendChild(el('span', null, l.text));
-        if (l.amount) d.appendChild(el('span', l.amount < 0 ? ' warn' : ' ok', '  ' + yen(l.amount)));
-        c.appendChild(d);
-      }
-      box.appendChild(c);
-      skipped = [];
-    }
-
-    if (st.ended) {
-      const name = { true: `真エンド（全${st.cfg.catalogSize}本を同時所持）`, normal: 'ノーマルエンド（図鑑は完成、所持は未達）',
-                     bad: 'バッドエンド（家賃を払えず閉店）', incomplete: '未達成',
-                     demo: `体験版はここまで（${st.cfg.totalWeeks}週）` }[st.ending];
-      const c = el('div', 'card');
-      c.appendChild(el('div', 'who', 'ゲーム終了 — ' + name));
-      const s = st.result || E.stats(st);
-      c.appendChild(el('div', null,
-        `${s.week - 1}週まで営業 / 登録 ${s.registered}本 / 所持 ${s.owned}本 / 残高 ${yen(s.cash)}`));
-      if (st.cfg.carryOver.registered) {
-        c.appendChild(el('div', 'sub',
-          `「次の周へ」で図鑑の登録${s.registered}本を引き継げます（資金と在庫は引き継ぎません）。`
-          + '登録済みのソフトは最初から取り寄せで狙えます'));
-        const mem = E.REGULARS.filter(r => st.memories && st.memories[r.id]);
-        c.appendChild(el('div', mem.length ? 'ok' : 'sub',
-          mem.length
-            ? `${mem.map(r => r.name).join('・')}との記憶が残ります。次の周では会いやすくなります`
-              + '（常連表で一人ずつ切り替えられます。絞るほどその相手に会いやすくなります）'
-            : '最後まで見届けた常連がいません。全4回のイベントを見ると「記憶」が残り、次の周で会いやすくなります'));
-      }
-      box.appendChild(c);
-      for (const key of ['registered', 'owned']) {
-        if (st.reveals[key] && !st.reveals[key].carried) {
-          const rc = revealCard(key, null);
-          if (rc) box.appendChild(rc);
-        }
-      }
-      return;
-    }
-
-    // 種明かしが出たら、読むまで店内の先頭に居座る
-    for (const key of ['registered', 'owned']) {
-      if (st.reveals[key] && !st.reveals[key].carried && !readReveals.has(key)) {
-        const rc = revealCard(key, () => { readReveals.add(key); render(); });
-        if (rc) { box.appendChild(rc); return; }
-      }
-    }
-
-    if (st.phase === 'shop' && st.current) {
-      const c = st.current;
-      const card = el('div', 'card');
-      if (c.regular) {
-        card.classList.add('regular');
-        const w = el('div', 'who');
-        w.textContent = `${c.regular.name}（${c.regular.title}）`;
-        w.appendChild(el('span', 'sub', `　${c.regular.visits}回目の来店`));
-        card.appendChild(w);
-      }
-      if (c.type === 'event') {
-        card.classList.add('event');
-        if (!c.regular) card.appendChild(el('div', 'who', 'イベント'));
-        card.appendChild(el('p', 'detail-body', c.event.text));
-        // 既に覚えている交渉術のイベントは、教え直しではなく別のやりとりになる
-        const known = E.skillKnownNote(st, c.event);
-        if (known) {
-          card.appendChild(el('p', 'detail-body', known.text));
-          card.appendChild(el('div', 'ok',
-            `${st.cfg.skills[c.event.skill].name}は習得済み — 代わりに ${yen(known.amount)}`));
-        }
-        const row = el('div', 'row');
-        if (c.event.type === 'offer') {
-          const t = st.catalog.find(x => x.name === c.event.title);
-          if (t) {
-            const price = Math.round(t.base * c.event.priceRatio / 100) * 100;
-            card.appendChild(el('div', 'sub',
-              `「${t.name}」／${t.tierLabel}／基準相場 ${yen(t.base)} → ${yen(price)}`));
-            showDetail(t.id);
-            const canBuy = st.cash >= price && E.freeSlots(st) > 0;
-            row.appendChild(btn('買い取る', () => { E.answer(st, true); render(); }, true, !canBuy));
-            row.appendChild(btn('断る', () => { E.answer(st, false); render(); }));
-            if (!canBuy) row.appendChild(el('span', 'warn', st.cash < price ? '資金不足' : '棚枠が満杯'));
-          }
-        } else {
-          row.appendChild(btn('次へ', () => { E.answer(st, true); render(); }, true));
-        }
-        card.appendChild(row);
-        box.appendChild(card);
-        box.appendChild(el('div', 'sub', `この後あと${st.queue.length}人`));
-        return;
-      }
-      if (c.type === 'buyer') {
-        const t = st.byId.get(c.titleId);
-        if (!c.regular) card.appendChild(el('div', 'who', '買いに来た客'));
-        const p = el('div');
-        p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
-        p.appendChild(el('span', null, ` を ${yen(c.offer)} で売ってほしい`));
-        card.appendChild(p);
-        // 値札との差を見せる（棚から勝手に売れる分より指名客のほうが高く払う）
-        const item = st.inv.find(i => i.uid === c.uid);
-        const tag = item ? Math.round(E.priceOf(st, item)
-          * (st.cfg.passiveSales.priceRange[0] + st.cfg.passiveSales.priceRange[1]) / 2 / 100) * 100 : null;
-        card.appendChild(el('div', 'sub',
-          `${t.year}年 / ${t.maker} / ${t.tierLabel}`
-          + (t.rating != null ? ` / 評価${t.rating.toFixed(1)}` : '')
-          + `｜基準相場 ${yen(t.base)}｜所持 ${E.countOf(st, t.id)}本`));
-        if (tag) {
-          const diff = Math.round((c.offer / tag - 1) * 100);
-          const d = el('div');
-          d.appendChild(el('span', 'sub', `棚に出しておけばおよそ ${yen(tag)}。`));
-          d.appendChild(el('span', diff > 0 ? 'ok' : 'warn',
-            ` この客は${diff >= 0 ? '+' : ''}${diff}%`));
-          card.appendChild(d);
-        }
-        showDetail(t.id);
-        if (E.countOf(st, t.id) <= 1) {
-          card.appendChild(el('div', 'warn', '※ 最後の1本です。売ると所持率が下がります'));
-        }
-        const row = el('div', 'row');
-        row.appendChild(btn('売る', () => { E.answer(st, true); render(); }, true));
-        row.appendChild(btn('売らない', () => { E.answer(st, false); render(); }));
-        card.appendChild(row);
-      } else if (c.type === 'seller') {
-        const t = st.byId.get(c.titleId);
-        const owned = E.ownedIds(st).has(t.id);
-        if (!c.regular) card.appendChild(el('div', 'who', '売りに来た客'));
-        const p = el('div');
-        p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
-        p.appendChild(el('span', null, ` を ${yen(c.ask)} で買い取ってほしい`));
-        card.appendChild(p);
-        const note = condNote(st, c.cond);
-        const d = el('div', 'sub');
-        d.appendChild(el('span', null,
-          `${t.year}年 / ${t.maker} / ${t.tierLabel}`
-          + (t.rating != null ? ` / 評価${t.rating.toFixed(1)}` : '')
-          + `｜基準相場 ${yen(t.base)}｜`));
-        if (note) d.appendChild(el('span', condCls({ cond: c.cond }), note + '｜'));
-        d.appendChild(el('span', null, owned ? '所持済み' : '未所持'));
-        card.appendChild(d);
-        showDetail(t.id);
-        const row = el('div', 'row');
-        const canBuy = st.cash >= c.ask && E.freeSlots(st) > 0;
-        row.appendChild(btn('買う', () => { E.answer(st, true); render(); }, true, !canBuy));
-        row.appendChild(btn('買わない', () => { E.answer(st, false); render(); }));
-        if (!canBuy) row.appendChild(el('span', 'warn', st.cash < c.ask ? '資金不足' : '棚枠が満杯'));
-        card.appendChild(row);
-      } else {
-        if (!c.regular) card.appendChild(el('div', 'who', '冷やかし'));
-        // 常連の雑談は長いので、読みやすい行間で出す
-        card.appendChild(el('p', c.regular ? 'detail-body' : null, c.line));
-        const row = el('div', 'row');
-        row.appendChild(btn('次へ', () => { E.answer(st, false); render(); }, true));
-        card.appendChild(row);
-      }
-      box.appendChild(card);
-      box.appendChild(el('div', 'sub', `この後あと${st.queue.length}人`));
-      return;
-    }
-
-    // 行動フェイズ
-    const o = st.offers;
-    box.appendChild(el('div', 'sub', '行動フェイズ — 1つ選ぶとターンが終わります'));
-    if (st.cfg.reputation.enabled) {
-      const rc = st.cfg.reputation;
-      box.appendChild(el('div', 'sub',
-        `評判 ${Math.round(st.reputation)}：来客はおよそ${Math.round(E.byRep(st, rc.customers))}人／ターン。`
-        + '棚を埋める・買い取りに応じる・珍しいものを置くと上がり、断る・売り物を切らすと下がります'));
-    }
-
-    const mk = (title, detail, label, fn, disabled, note) => {
-      const card = el('div', 'card');
-      card.appendChild(el('div', 'who', title));
-      card.appendChild(el('div', null, detail));
-      if (note) card.appendChild(el('div', 'sub', note));
-      const row = el('div', 'row');
-      row.appendChild(btn(label, fn, true, disabled));
-      card.appendChild(row);
-      box.appendChild(card);
-    };
-
-    // 解禁前の選択肢は理由とともに伏せる
-    const locked = (title, key) => {
-      const card = el('div', 'card');
-      card.style.borderLeftColor = 'var(--rule)';
-      card.appendChild(el('div', 'who', title));
-      card.appendChild(el('div', 'sub', `${st.cfg.unlock[key]}週目から選べるようになります`));
-      box.appendChild(card);
-    };
-
-    if (o.bulk) {
-      mk('まとめ買い（業者オークション）',
-        `${o.bulk.lot.count}点セット — ${yen(o.bulk.cost)}`,
-        '入札する', () => { E.doAction(st, 'bulk', {}); render(); },
-        st.cash < o.bulk.cost,
-        o.bulk.hint + '｜棚に入りきらない分はその場で業者に流れます'
-        + '｜業者どうしの取引なので、町の評判は動きません');
-    } else locked('まとめ買い（業者オークション）', 'bulk');
-
-    if (!E.unlocked(st, 'single')) locked('オークション（単品入札）', 'single');
-    if (o.single) {
-      const t = st.byId.get(o.single.titleId);
-      const owned = E.ownedIds(st).has(t.id);
-      const card = el('div', 'card');
-      card.appendChild(el('div', 'who', 'オークション（単品入札）'));
-      const p = el('div');
-      p.appendChild(el('span', tierCls(t.tier), `「${t.name}」`));
-      p.appendChild(el('span', null, ` — 現在価格 ${yen(o.single.current)}`));
-      card.appendChild(p);
-      const sd = el('div', 'sub');
-      sd.appendChild(el('span', null,
-        `${t.hardware} / ${t.year}年 / ${t.maker} / ${t.tierLabel}｜基準相場 ${yen(t.base)}｜`));
-      const sn = condNote(st, o.single.cond);
-      if (sn) sd.appendChild(el('span', condCls({ cond: o.single.cond }), sn + '｜'));
-      sd.appendChild(el('span', null, owned ? '所持済み' : '未所持'));
-      card.appendChild(sd);
-      const row = el('div', 'row');
-      const input = el('input');
-      input.type = 'number';
-      input.value = Math.max(o.single.current, Math.round(t.base * 0.8));
-      input.step = 1000;
-      row.appendChild(el('span', 'sub', '入札額'));
-      row.appendChild(input);
-      row.appendChild(btn('入札する', () => {
-        const r = E.doAction(st, 'single', { bid: Number(input.value) });
-        if (!r.ok) alert({ lowbid: '現在価格を下回っています', cash: '資金が足りません',
-                           slots: '棚枠が満杯です' }[r.reason] || '入札できません');
-        render();
-      }, true));
-      card.appendChild(row);
-      box.appendChild(card);
-    }
-
-    // 取り寄せ — 図鑑に載っているのに手元に無いものを指名して仕入れる
-    const want = E.orderable(st);
-    if (!E.unlocked(st, 'order')) locked('取り寄せを頼む', 'order');
-    if (want.length) {
-      const card = el('div', 'card');
-      card.appendChild(el('div', 'who', '取り寄せを頼む'));
-      const batch = Math.max(1, st.cfg.order.batch || 1);
-      card.appendChild(el('div', null,
-        `図鑑に載っているのに手元に無いソフト ${want.length}本から、1回に${batch}本まで指名できます`));
-      const sel = document.createElement('select');
-      if (batch > 1) {
-        sel.multiple = true;
-        sel.size = Math.min(8, Math.max(3, want.length));
-      }
-      want.slice().sort((a, b) => E.orderCost(st, a) - E.orderCost(st, b)).forEach(t => {
-        const op = document.createElement('option');
-        op.value = t.id;
-        op.textContent = `${t.name}（${t.tierLabel}） — ${yen(E.orderCost(st, t))}`;
-        sel.appendChild(op);
-      });
-      card.appendChild(el('div', 'sub',
-        `相場の${Math.round(st.cfg.order.premium * 100)}%を払います。終盤に最後の数本を狙い撃つための手段です`
-        + (batch > 1 ? `（${batch}本まで選べます。まとめて頼んでも手番は1回。`
-                       + 'パソコンならCtrl＋クリック、スマホはそのまま複数タップ）' : '')));
-      const row = el('div', 'row');
-      row.appendChild(sel);
-      row.appendChild(btn('頼む', () => {
-        const picked = [...sel.selectedOptions].slice(0, batch).map(o => Number(o.value));
-        if (!picked.length) { alert('取り寄せるソフトを選んでください'); return; }
-        const r = E.doAction(st, 'order', { titleIds: picked });
-        if (!r.ok) {
-          alert({ cash: '資金が足りません', slots: '棚枠が満杯です', none: '取り寄せできません' }[r.reason]
-            || '取り寄せできません');
-        }
-        render();
-      }, true));
-      card.appendChild(row);
-      box.appendChild(card);
-    }
-
-    if (o.junk) {
-      mk('処分品引取（近所の人から）',
-        `押し入れの整理もの ${o.junk.lot.count}点 — ${o.junk.cost ? yen(o.junk.cost) : '無料'}`,
-        '引き取る', () => { E.doAction(st, 'junk', {}); render(); },
-        st.cash < o.junk.cost,
-        '安い並品ばかりで状態も良くありませんが、'
-        + `引き取ると町での評判が上がります（+${st.cfg.reputation.gain.junkLot}）`);
-    } else locked('処分品引取', 'junk');
-
-    mk('店舗・保管庫の整理',
-      selected.size ? `選択中の${selected.size}点を業者に卸します` : '在庫表で選んだ在庫を業者に卸します',
-      '整理する', () => {
-        E.doAction(st, 'organize', { wholesale: Array.from(selected) });
-        selected.clear();
-        render();
-      }, false, `卸値は基準相場の${Math.round(st.cfg.wholesaleRatio * 100)}%です`);
-
-    // 設備と人手
-    if (!E.unlocked(st, 'expand')) locked('設備と人手を買う', 'expand');
-    else {
-      for (const u of E.availableUpgrades(st)) {
-        mk(`${u.name}（${u.owned}/${u.max}）`,
-          yen(u.cost),
-          '買う', () => {
-            const r = E.doAction(st, 'upgrade', { id: u.id });
-            if (!r.ok) alert({ cash: '資金が足りません', max: 'これ以上は増やせません' }[r.reason] || '買えません');
-            render();
-          }, st.cash < u.cost, u.desc);
-      }
-    }
-
-    const pc = st.cfg.promo;
-    if (pc && pc.enabled) {
-      if (!E.unlocked(st, 'promo')) {
-        const card = el('div', 'card');
-        card.style.borderLeftColor = 'var(--rule)';
-        card.appendChild(el('div', 'who', 'SNSで宣伝する'));
-        card.appendChild(el('div', 'sub', 'アカウントがありません'));
-        box.appendChild(card);
-      } else {
-        const done = st.promo || 0, capped = done >= pc.cap;
-        const pct = Math.round(E.promoRate(st) * 100);
-        mk('SNSで宣伝する',
-          capped ? `${done} / ${pc.cap}　もう届く人には届いています`
-                 : `${done} / ${pc.cap}　店の名前が広がっています`,
-          '投稿する', () => { E.doAction(st, 'promo', {}); render(); }, false,
-          `評判が上がり、持っていないソフトが持ち込まれやすくなります`
-          + `（いまの効き ${pct}%／${pc.cap}回で頭打ち）`
-          + (capped ? '｜これ以上は伸びません' : ''));
-      }
-    }
-
-    const cc = st.cfg.credit;
-    if (cc && cc.enabled) {
-      const room = Math.max(0, cc.limit - st.debt);
-      const step = Math.min(room, st.cfg.rent * 2);
-      mk('業者に立て替えてもらう',
-        room ? `あと ${yen(room)} まで頼めます` : '上限まで借りています',
-        `${yen(step)} 借りる`, () => { E.borrow(st, step); render(); }, !room,
-        '手番は使いません。週末に手数料が乗り、余裕ができたぶんから自動で返します'
-        + '｜在庫を叩き売ると棚が痩せて売上が戻らなくなるので、先にこちらを頼るほうが立て直せます');
-    }
-
-    mk('休む', '何もしません', '休む', () => { E.doAction(st, 'rest', {}); render(); });
-  }
-
-  function btn(label, fn, primary, disabled) {
-    const b = el('button', primary ? 'primary' : null, label);
-    b.disabled = !!disabled;
-    b.onclick = fn;
-    return b;
-  }
-
-  // ---------------- 在庫 ----------------
-  function renderInv() {
-    const tb = $('inv');
-    tb.innerHTML = '';
-    const head = tb.insertRow();
-    ['', 'タイトル', 'ハード', '希少', '状態', '相場', '陳列', '非売品', '値下'].forEach((h, i) => {
-      const th = document.createElement('th');
-      th.textContent = h;
-      if (i === 5) th.className = 'num';
-      head.appendChild(th);
-    });
-
-    const items = st.inv.slice().sort((a, b) => {
-      if (a.junk !== b.junk) return a.junk ? 1 : -1;
-      return E.priceOf(st, b) - E.priceOf(st, a);
-    });
-
-    for (const item of items) {
-      const t = E.titleOf(st, item);
-      const r = tb.insertRow();
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = selected.has(item.uid);
-      cb.onchange = () => {
-        if (cb.checked) selected.add(item.uid); else selected.delete(item.uid);
-        $('selNote').textContent = selected.size ? `${selected.size}点を選択中` : '';
-      };
-      r.insertCell().appendChild(cb);
-      if (!t) {
-        const c = r.insertCell();
-        c.textContent = 'ガラクタ';
-        c.className = 'sub';
-        r.insertCell().textContent = '—';
-        r.insertCell().textContent = '—';
-        r.insertCell().textContent = '—';
-        const pc = r.insertCell(); pc.textContent = yen(st.cfg.junkValue); pc.className = 'num';
-        r.insertCell(); r.insertCell(); r.insertCell();
-        continue;
-      }
-      const nc = r.insertCell();
-      nc.textContent = t.name + (E.countOf(st, t.id) > 1 ? ` ×${E.countOf(st, t.id)}` : '');
-      nc.className = tierCls(t.tier);
-      nc.title = t.desc;
-      r.style.cursor = 'pointer';
-      r.onclick = e => { if (e.target.tagName !== 'INPUT') showDetail(t.id); };
-      r.insertCell().textContent = t.hardware;
-      r.insertCell().textContent = t.tierLabel;
-      const cc = r.insertCell();
-      cc.textContent = E.condLabel(st, item);
-      cc.className = condCls(item);
-      const pc = r.insertCell();
-      pc.textContent = yen(E.priceOf(st, item));
-      pc.className = 'num';
-      r.insertCell().appendChild(toggle(item.display, v => {
-        if (!E.setDisplay(st, item.uid, v)) alert('陳列枠がいっぱいです');
-        render();
+  function regularEntries() {
+    return ORIGINAL.regulars.regulars.map((r, i) => {
+      const fields = [];
+      fields.push({ file: 'regulars', path: `regulars.${i}.title`, name: '素性', short: true });
+      fields.push({ file: 'regulars', path: `regulars.${i}.calls`, name: '店主の呼び方', short: true });
+      (r.lines || []).forEach((_, j) => fields.push({
+        file: 'regulars', path: `regulars.${i}.lines.${j}`, name: `セリフ ${j + 1}`,
       }));
-      r.insertCell().appendChild(toggle(item.protect, v => { E.setProtect(st, item.uid, v); render(); }));
-      r.insertCell().appendChild(toggle(item.markdown, v => { E.setMarkdown(st, item.uid, v); render(); }));
-    }
-    $('invNote').textContent = `${st.inv.length} / ${E.shelfCap(st)}枠｜非売品は客も自動売上も手を出しません`;
-    $('selNote').textContent = selected.size ? `${selected.size}点を選択中` : '';
-  }
-
-  function toggle(on, fn) {
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = !!on;
-    cb.onchange = () => fn(cb.checked);
-    return cb;
-  }
-
-  // ---------------- 図鑑 ----------------
-  function renderDex() {
-    const tb = $('dex');
-    tb.innerHTML = '';
-    const head = tb.insertRow();
-    ['状態', 'タイトル', '年', 'メーカー', '希少', '評価', '相場'].forEach((h, i) => {
-      const th = document.createElement('th');
-      th.textContent = h;
-      if (i >= 5) th.className = 'num';
-      head.appendChild(th);
+      (r.events || []).forEach((e, j) => {
+        fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.text`,
+          name: `${ORIGINAL.regulars.visitThresholds[j]}回目（${e.type}）` });
+        if (e.skillKnown) fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.skillKnown.text`,
+          name: `${ORIGINAL.regulars.visitThresholds[j]}回目（習得済みのとき）` });
+      });
+      fields.push({ file: 'regulars', path: `regulars.${i}.ageNote`, name: '設定メモ（ゲームには出ない）' });
+      return { id: 'r' + i, group: 'regulars', label: r.name, meta: `${(r.lines || []).length}本`, fields, regular: i };
     });
-    const owned = E.ownedIds(st);
-    const onlyMissing = $('dexMissing').checked;
-    for (const t of st.catalog) {
-      const has = owned.has(t.id), reg = st.registered.has(t.id);
-      if (onlyMissing && has) continue;
-      const r = tb.insertRow();
-      const sc = r.insertCell();
-      sc.textContent = has ? '所持' : reg ? '登録' : '—';
-      sc.className = has ? 'ok' : reg ? 'sub' : 'sub';
-      const nc = r.insertCell();
-      nc.textContent = (reg ? t.name : '？？？') + (reg && !t.authored ? ' *' : '');
-      nc.className = reg ? tierCls(t.tier) : 'sub';
-      if (reg && !t.authored) nc.title = '仮データ';
-      if (reg) nc.title = t.desc;
-      r.insertCell().textContent = reg ? t.year : '—';
-      r.insertCell().textContent = reg ? t.maker : '—';
-      r.insertCell().textContent = t.tierLabel;
-      const rc = r.insertCell();
-      rc.textContent = reg && t.rating != null ? t.rating.toFixed(1) : '—';
-      rc.className = 'num';
-      const pc = r.insertCell();
-      pc.textContent = reg ? yen(t.base) : '—';
-      pc.className = 'num';
-      if (reg) { r.style.cursor = 'pointer'; r.onclick = () => showDetail(t.id); }
-    }
-    const s = E.stats(st);
-    $('dexNote').textContent = `登録 ${s.registered} / 所持 ${s.owned} / 全${s.total}本`;
   }
 
-  // ---------------- ログ ----------------
-  function renderLog() {
-    const box = $('log');
-    box.innerHTML = '';
-    for (const l of st.log.slice(-80).reverse()) {
-      const d = el('div');
-      d.appendChild(el('span', 'sub', `${l.week}週${l.half === 0 ? '前' : '後'} `));
-      d.appendChild(el('span', null, l.text));
-      if (l.amount) {
-        d.appendChild(el('span', l.amount < 0 ? ' warn' : ' ok', '  ' + yen(l.amount)));
+  function titleEntries() {
+    return ORIGINAL.software.titles.map((t, i) => ({
+      id: 't' + i, group: 'titles', label: t.title, meta: t.tier,
+      titleIndex: i,
+      fields: [
+        { file: 'software', path: `titles.${i}.title`, name: 'タイトル', short: true },
+        { file: 'software', path: `titles.${i}.maker`, name: 'メーカー', short: true },
+        { file: 'software', path: `titles.${i}.genre`, name: 'ジャンル', short: true },
+        { file: 'software', path: `titles.${i}.details`, name: '図鑑の説明' },
+      ],
+    }));
+  }
+
+  function loreEntries() {
+    const rev = ORIGINAL.software.lore.reveals;
+    const fields = [];
+    for (const k of Object.keys(rev)) {
+      fields.push({ file: 'software', path: `lore.reveals.${k}.title`, name: `${k}：見出し`, short: true });
+      fields.push({ file: 'software', path: `lore.reveals.${k}.text`, name: `${k}：本文` });
+    }
+    fields.push({ file: 'software', path: 'lore.uncle.note', name: '叔父の設定メモ' });
+    fields.push({ file: 'software', path: 'lore.self.note', name: '主人公の設定メモ' });
+    return [{ id: 'lore', group: 'lore', label: '種明かしと設定', meta: `${Object.keys(rev).length}段`, fields }];
+  }
+
+  const GROUPS = [
+    { id: 'regulars', label: '常連', build: regularEntries },
+    { id: 'titles', label: 'ソフト', build: titleEntries },
+    { id: 'lore', label: '物語', build: loreEntries },
+    { id: 'out', label: '書き出し', build: () => [] },
+  ];
+  const ENTRIES = {};
+  for (const g of GROUPS) ENTRIES[g.id] = g.build();
+
+  let tab = 'regulars';
+  let sel = { regulars: 'r0', titles: 't0', lore: 'lore' };
+  let query = '';
+  let onlyEdited = false;
+
+  // ── 検査。test/check.js が見ているのと同じ約束をその場で確かめる ──────
+  const BANNED_CALL = /おじいちゃん|おじいさん|お兄さん|お若い|若く見え/;
+  const strip = s => String(s).replace(/「[^」]*」/g, '');   // 「」の中は他人の発言
+
+  function checkRegular(i) {
+    const r = work.regulars.regulars[i];
+    const orig = ORIGINAL.regulars.regulars[i];
+    const out = [];
+    const spoken = (r.lines || []).concat((r.events || []).map(e => e.text || ''))
+      .concat((r.events || []).filter(e => e.skillKnown).map(e => e.skillKnown.text || ''));
+
+    for (const nm of [UNCLE.surname, SELF.surname, SELF.name]) {
+      const hit = spoken.find(l => l.includes(nm));
+      if (hit) out.push(['bad', `「${nm}」が会話に出ている`, hit]);
+    }
+    const bad = spoken.map(l => l.match(BANNED_CALL)).find(Boolean);
+    if (bad) out.push(['bad', `年齢が漏れる呼びかけ「${bad[0]}」`, bad.input]);
+
+    const calls = [...new Set(work.regulars.regulars.map(x => x.calls))];
+    for (const f of calls) {
+      if (f === r.calls || r.calls.includes(f) || f.includes(r.calls)) continue;
+      const hit = (r.lines || []).find(l => strip(l).includes(f));
+      if (hit) out.push(['bad', `${r.calls}派なのに「${f}」と呼んでいる`, hit]);
+    }
+    if (!(r.lines || []).some(l => l.includes(r.calls))) {
+      out.push(['warn', `「${r.calls}」を一度も使っていない`, '']);
+    }
+    if ((r.lines || []).length < 12) {
+      out.push(['warn', `セリフが${(r.lines || []).length}本（1周で12〜18回来るので12本は要る）`, '']);
+    }
+    const dup = new Set(), same = [];
+    for (const l of (r.lines || [])) { if (dup.has(l)) same.push(l); dup.add(l); }
+    if (same.length) out.push(['warn', `同じセリフが${same.length}件ある`, same[0]]);
+
+    const hi = ORIGINAL.software.hardware.span[1];
+    if (orig.born > hi) {
+      const hit = spoken.map(l => strip(l).match(/当時|発売日に買|子供の頃/)).find(Boolean);
+      if (hit) out.push(['bad', `${orig.born}年生まれが「${hit[0]}」と実体験を語っている`, hit.input]);
+    }
+    if (orig.id === 'ruri') {
+      const hit = spoken.find(l => /先代|前の店主|叔父/.test(l));
+      if (hit) out.push(['bad', '瑠璃は先代と面識が無い設定', hit]);
+    }
+    // 常連が指名するソフトが実在するか（タイトルを直すと壊れる）
+    const names = new Set(work.software.titles.map(t => t.title));
+    for (const e of (r.events || [])) {
+      if (e.title && !names.has(e.title)) out.push(['bad', `「${e.title}」というソフトが無い`, '']);
+    }
+    return out;
+  }
+
+  function checkTitle(i) {
+    const t = work.software.titles[i];
+    const out = [];
+    const m = t.details.match(/わずか(\d+)本/);
+    if (m && Number(m[1]) !== t.sales) {
+      out.push(['bad', `本文の「わずか${m[1]}本」と出荷本数 ${t.sales.toLocaleString()} が違う`, '']);
+    }
+    if (/ミリオンセラー/.test(t.details) && t.sales < 1000000) {
+      out.push(['bad', `ミリオンと書いてあるのに${t.sales.toLocaleString()}本`, '']);
+    }
+    const used = ORIGINAL.regulars.regulars.some(r => (r.events || []).some(e => e.title === ORIGINAL.software.titles[i].title));
+    if (used && t.title !== ORIGINAL.software.titles[i].title) {
+      out.push(['warn', '常連のイベントが指名しているタイトル。変えると参照が切れる', '']);
+    }
+    if (t.lore) {
+      const who = t.lore === 'uncle' ? UNCLE : SELF;
+      if (!t.details.includes(who.name) && t.lore === 'uncle') {
+        out.push(['warn', `伏線の1本。${who.name}の名前が説明から消えている`, '']);
       }
-      box.appendChild(d);
     }
+    return out;
   }
 
-  // ---------------- ソフトの詳細 ----------------
-  let detailId = null;
+  // ── 描画 ────────────────────────────────────────────────
+  function dirtyCount() {
+    let n = 0;
+    for (const g of GROUPS) for (const e of (ENTRIES[g.id] || [])) {
+      for (const f of e.fields) if (changed(f.file, f.path)) n++;
+    }
+    return n;
+  }
+  const entryEdited = e => e.fields.some(f => changed(f.file, f.path));
 
-  function showDetail(id) { detailId = id; renderDetail(); }
-
-  function renderDetail() {
-    const box = $('detail');
-    if (!box) return;
+  function renderTabs() {
+    const box = $('tabs');
     box.innerHTML = '';
-    const t = detailId != null ? st.byId.get(detailId) : null;
-    if (!t || !st.registered.has(t.id)) {
-      box.appendChild(el('div', 'sub', '図鑑や在庫の行をクリックすると、そのソフトの詳細が出ます'));
-      return;
-    }
-    const h = el('div', 'detail-title');
-    h.appendChild(el('span', tierCls(t.tier), t.name));
-    box.appendChild(h);
-    box.appendChild(el('div', 'sub',
-      `${t.maker}／${t.year}年／${st.cfg.catalogHardware || 'SEC'}／${t.genreLabel}`));
-    const meta = el('div', 'detail-meta');
-    const chip = (label, value, cls) => {
-      const d = el('span', 'chip');
-      d.appendChild(el('span', 'sub', label + ' '));
-      d.appendChild(el('b', cls, value));
-      meta.appendChild(d);
-    };
-    chip('希少度', t.tierLabel, tierCls(t.tier));
-    chip('基準相場', yen(t.base));
-    chip('買取目安', yen(t.buy));
-    if (t.rating != null) chip('評価', t.rating.toFixed(1));
-    if (t.sales != null) chip('当時の出荷', t.sales.toLocaleString() + '本',
-      t.sales < 10000 ? 'warn' : null);
-    chip('所持', E.countOf(st, t.id) + '本', E.countOf(st, t.id) ? 'ok' : 'sub');
-    box.appendChild(meta);
-    box.appendChild(el('p', 'detail-body', t.desc));
-    if (!t.authored) {
-      box.appendChild(el('div', 'sub', '※ このソフトはまだ仮データです（タイトルと説明文は自動生成）'));
-    }
-    if (t.related && t.related.length) {
-      const names = t.related.map(id => st.byId.get(id))
-        .filter(x => st.registered.has(x.id)).map(x => x.name);
-      if (names.length) {
-        box.appendChild(el('div', 'sub', '同じメーカー: ' + names.slice(0, 6).join('、')
-          + (names.length > 6 ? ` ほか${names.length - 6}本` : '')));
-      }
-    }
-  }
-
-  // ---------------- 常連 ----------------
-  function renderRegulars() {
-    const tb = $('regulars');
-    if (!tb) return;
-    tb.innerHTML = '';
-    const head = tb.insertRow();
-    ['常連', '素性', '呼び方', '来店', '次のイベントまで', '記憶（押すと切替）'].forEach((h, i) => {
-      const th = document.createElement('th');
-      th.textContent = h;
-      if (i === 3) th.className = 'num';
-      head.appendChild(th);
-    });
-    const teaches = {};
-    for (const id in st.cfg.skills) teaches[st.cfg.skills[id].from] = id;
-    for (const r of E.REGULARS) {
-      const s = st.regulars[r.id] || { visits: 0, fired: 0 };
-      const row = tb.insertRow();
-      const nameCell = row.insertCell();
-      nameCell.textContent = r.name;
-      const sk = teaches[r.name];
-      if (sk) {
-        nameCell.appendChild(el('span', st.skills[sk] ? 'ok' : 'sub',
-          st.skills[sk] ? `　${st.cfg.skills[sk].name}◯` : `　${st.cfg.skills[sk].name}`));
-      }
-      const tc = row.insertCell();
-      tc.textContent = s.visits > 0 ? r.title : '——';
-      tc.className = s.visits > 0 ? '' : 'sub';
-      // 店主をどう呼ぶか。対等に見ている相手は「あんた」、店として見ている相手は「店長」
-      const cc = row.insertCell();
-      cc.textContent = s.visits > 0 ? (r.calls || '——') : '——';
-      cc.className = s.visits > 0 ? 'sub' : 'sub';
-      const vc = row.insertCell();
-      vc.textContent = s.visits + '回';
-      vc.className = 'num';
-      const next = E.THRESHOLDS[s.fired];
-      const nc = row.insertCell();
-      if (next === undefined) { nc.textContent = 'すべて見た'; nc.className = 'ok'; }
-      else if (s.visits === 0) { nc.textContent = 'まだ来ていない'; nc.className = 'sub'; }
-      else { nc.textContent = `あと${Math.max(0, next - s.visits)}回（${s.fired}/${E.THRESHOLDS.length}）`; }
-      // 最後まで見届けた相手とは、次の周でも会いやすい。
-      // 引き直しは1回きりなので、絞るほどその相手が濃くなる
-      const mc = row.insertCell();
-      if (st.memories && st.memories[r.id]) {
-        const on = !st.memoryOff[r.id];
-        mc.appendChild(btn(on ? '◯ 会いやすい' : '— 切っている',
-          () => { E.setMemory(st, r.id, !on); render(); }, false));
-        mc.className = on ? 'ok' : 'sub';
-      } else { mc.textContent = '——'; mc.className = 'sub'; }
-    }
-  }
-
-  /** 交渉術を1つずつ入り切りする。効き目を確かめるための検証用 */
-  function renderSkills() {
-    const box = $('skillRow');
-    if (!box) return;
-    box.innerHTML = '';
-    box.appendChild(el('span', 'sub', '交渉術'));
-    for (const id in st.cfg.skills) {
-      const sk = st.cfg.skills[id];
-      const on = E.skillOn(st, id);
-      const b = btn((on ? '◯ ' : '— ') + sk.name + (sk.pending ? '★' : ''),
-        () => { E.setSkill(st, id, !on); render(); }, false);
-      b.className = on ? 'primary' : null;
-      b.title = sk.desc + (sk.from ? `（${sk.from}から教わる）` : '（入手方法は未定）');
+    for (const g of GROUPS) {
+      const b = el('button', g.id === tab ? 'on' : null, g.label);
+      b.onclick = () => { tab = g.id; render(); };
       box.appendChild(b);
     }
   }
 
-  /** 判断の要らない客をまとめて消化する。何が起きたかは skipped に控える */
-  function runSkips() {
-    if (!skipTalk || !st || st.ended) return;
-    const from = st.log.length;
-    let guard = 0;
-    while (st.phase === 'shop' && st.current && E.skippable(st.current) && guard++ < 50) {
-      E.answer(st, st.current.type === 'event');   // ボタンと同じ引数を渡す
+  function visibleEntries() {
+    const q = query.trim().toLowerCase();
+    return (ENTRIES[tab] || []).filter(e => {
+      if (onlyEdited && !entryEdited(e)) return false;
+      if (!q) return true;
+      if (e.label.toLowerCase().includes(q)) return true;
+      return e.fields.some(f => String(now(f.file, f.path) || '').toLowerCase().includes(q));
+    });
+  }
+
+  function renderIndex() {
+    const box = $('index');
+    box.innerHTML = '';
+    if (tab === 'out') return;
+    const list = visibleEntries();
+    if (!list.length) { box.appendChild(el('div', 'note', '当てはまるものがありません')); return; }
+    for (const e of list) {
+      const cls = [e.id === sel[tab] ? 'on' : '', entryEdited(e) ? 'edited' : ''].filter(Boolean).join(' ');
+      const b = el('button', cls || null);
+      b.appendChild(el('span', null, e.label));
+      b.appendChild(el('span', 'n', e.meta));
+      b.onclick = () => { sel[tab] = e.id; render(); };
+      box.appendChild(b);
     }
-    if (st.log.length > from) skipped = st.log.slice(from);
+  }
+
+  function fieldRow(f) {
+    const row = el('div', 'f' + (changed(f.file, f.path) ? ' edited' : ''));
+    const top = el('div', 'top');
+    top.appendChild(el('span', 'name', f.name));
+    const count = el('span', 'count');
+    top.appendChild(count);
+    row.appendChild(top);
+
+    const ta = document.createElement('textarea');
+    ta.value = now(f.file, f.path) == null ? '' : String(now(f.file, f.path));
+    ta.rows = f.short ? 1 : 2;
+    ta.spellcheck = false;
+
+    // 「元に戻す」は最初から作っておいて、変わったときだけ見せる。
+    // 打つたびに作り直すと、入力中のカーソルが飛ぶ
+    const line = el('div', 'top');
+    const w = el('div', 'was');
+    const undo = el('button', 'ghost', '元に戻す');
+    undo.onclick = () => {
+      put(work[f.file], f.path, was(f.file, f.path));
+      ta.value = was(f.file, f.path) == null ? '' : String(was(f.file, f.path));
+      save(); sync();
+      renderChecks(); renderHead(); renderIndex();
+    };
+    line.appendChild(w);
+    line.appendChild(undo);
+
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 4) + 'px'; };
+    function sync() {
+      count.textContent = ta.value.length + '字';
+      const dirty = changed(f.file, f.path);
+      row.classList.toggle('edited', dirty);
+      line.hidden = !dirty;
+      if (dirty) w.textContent = '元: ' + was(f.file, f.path);
+      grow();
+    }
+    ta.addEventListener('input', () => {
+      put(work[f.file], f.path, ta.value);
+      save(); sync();
+      renderChecks(); renderHead(); renderIndex();
+    });
+    row.appendChild(ta);
+    row.appendChild(line);
+    sync();
+    setTimeout(grow, 0);
+    return row;
+  }
+
+  function renderChecks() {
+    const box = $('checks');
+    if (!box) return;
+    box.innerHTML = '';
+    const e = (ENTRIES[tab] || []).find(x => x.id === sel[tab]);
+    if (!e) return;
+    let flags = [];
+    if (e.regular != null) flags = checkRegular(e.regular);
+    else if (e.titleIndex != null) flags = checkTitle(e.titleIndex);
+    if (!flags.length) {
+      const ok = el('div', 'flag ok');
+      ok.appendChild(el('b', null, '通過'));
+      ok.appendChild(el('span', null, '約束を破っているところはありません'));
+      box.appendChild(ok);
+      return;
+    }
+    for (const [level, msg, sample] of flags) {
+      const d = el('div', 'flag ' + level);
+      d.appendChild(el('b', null, level === 'bad' ? '違反' : '注意'));
+      d.appendChild(el('span', null, msg + (sample ? `　— ${String(sample).slice(0, 34)}…` : '')));
+      box.appendChild(d);
+    }
+  }
+
+  function renderHead() {
+    const n = dirtyCount();
+    const d = $('dirty');
+    d.textContent = n ? `${n}か所を変更中` : '変更なし';
+    d.className = n ? 'gold' : 'sub';
+    d.style.color = n ? 'var(--gold)' : 'var(--sub)';
+    $('btnRevertAll').disabled = !n;
+  }
+
+  function renderOut() {
+    const main = $('main');
+    const g = el('div', 'group');
+    const h = el('h2', null, '書き出し');
+    h.appendChild(el('span', 'sub', 'コピーして data/ のファイルに貼り替えます'));
+    g.appendChild(h);
+    const rows = el('div', 'rows');
+    for (const [file, path] of [['software', 'data/software.json'], ['regulars', 'data/regulars.json']]) {
+      const f = el('div', 'f');
+      const top = el('div', 'top');
+      top.appendChild(el('span', 'name', path));
+      const n = ['software', 'regulars'].includes(file)
+        ? (ENTRIES.regulars.concat(ENTRIES.titles, ENTRIES.lore)
+            .reduce((s, e) => s + e.fields.filter(x => x.file === file && changed(x.file, x.path)).length, 0)) : 0;
+      top.appendChild(el('span', 'count', n ? `${n}か所を変更` : '変更なし'));
+      f.appendChild(top);
+      const json = JSON.stringify(work[file], null, 2) + '\n';
+      const ta = document.createElement('textarea');
+      ta.value = json; ta.readOnly = true; ta.spellcheck = false;
+      const line = el('div', 'top');
+      const copy = el('button', null, 'JSONをコピー');
+      copy.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(json);
+          copy.textContent = 'コピーしました';
+        } catch (err) {
+          ta.select();
+          copy.textContent = '選択しました（⌘/Ctrl+C）';
+        }
+        setTimeout(() => { copy.textContent = 'JSONをコピー'; }, 1800);
+      };
+      line.appendChild(copy);
+      line.appendChild(el('span', 'note', `${(json.length / 1024).toFixed(0)}KB`));
+      f.appendChild(line);
+      f.appendChild(ta);
+      rows.appendChild(f);
+    }
+    g.appendChild(rows);
+    main.appendChild(g);
+
+    const note = el('div', 'group');
+    const nh = el('h2', null, '書き戻したあと');
+    note.appendChild(nh);
+    const body = el('div', 'f');
+    body.appendChild(el('div', 'note',
+      'ファイルを貼り替えたら node build/gen-data.js && node build/build.js を実行してください。'
+      + ' src/software-data.js が作り直され、dist/prototype.html に反映されます。'
+      + ' そのあと node test/check.js が通ることを確認してください——'
+      + 'この机で見ている約束は、あちらでも同じように検査されます。'));
+    note.appendChild(body);
+    main.appendChild(note);
   }
 
   function render() {
-    runSkips();
-    renderStat(); renderPhase(); renderInv(); renderDex(); renderLog(); renderDetail(); renderRegulars();
-    renderSkills();
-  }
-  window.renderUI = render;   // デバッグ用
+    renderTabs();
+    renderIndex();
+    renderHead();
+    const main = $('main');
+    main.innerHTML = '';
+    if (tab === 'out') { renderOut(); return; }
 
-  // ---------------- 操作 ----------------
-  let lastRun = null;   // 前周の記録（図鑑の引き継ぎ用）
+    const e = (ENTRIES[tab] || []).find(x => x.id === sel[tab]) || visibleEntries()[0];
+    if (!e) { main.appendChild(el('div', 'note', '当てはまるものがありません')); return; }
+    sel[tab] = e.id;
 
-  function newGame(previous) {
-    const sel = $('weeks');
-    st = E.createGame({
-      seed: Number($('seed').value) || 1,
-      balance: { totalWeeks: sel ? Number(sel.value) : 50 },
-      previous: previous || undefined,
-    });
-    selected.clear();
-    readReveals = new Set();
-    window.st = st;
-    render();
-  }
-
-  const skipBox = $('skipTalk');
-  if (skipBox) {
-    skipBox.checked = skipTalk;
-    skipBox.onchange = () => {
-      skipTalk = skipBox.checked;
-      try { localStorage.setItem(SKIP_KEY, skipTalk ? '1' : '0'); } catch (e) { /* 保存できなくても動く */ }
-      render();
-    };
+    const box = el('div', 'group');
+    const h = el('h2', null, e.label);
+    h.appendChild(el('span', 'sub', e.meta));
+    box.appendChild(h);
+    const checks = el('div', 'f');
+    const cb = el('div', null);
+    cb.id = 'checks';
+    checks.appendChild(cb);
+    box.appendChild(checks);
+    const rows = el('div', 'rows');
+    for (const f of e.fields) rows.appendChild(fieldRow(f));
+    box.appendChild(rows);
+    main.appendChild(box);
+    renderChecks();
   }
 
-  $('btnNew').onclick = () => { lastRun = null; newGame(); };
-  $('btnCarry').onclick = () => {
-    if (!st.ended) { alert('50週を終えてから引き継げます'); return; }
-    lastRun = E.carryFrom(st);
-    $('seed').value = (Number($('seed').value) || 1) + 1;   // 次の周は別の展開に
-    newGame(lastRun);
-  };
-  $('btnTurn').onclick = () => { if (!st.ended) P.playTurn(st); render(); };
-  $('btnWeek').onclick = () => { const w = st.week; while (!st.ended && st.week === w) P.playTurn(st); render(); };
-  $('btnAll').onclick = () => { P.playAll(st); render(); };
-  $('dexMissing').onchange = renderDex;
-  if ($('weeks')) $('weeks').onchange = () => { lastRun = null; newGame(); };
-  $('btnWholesale').onclick = () => {
-    if (!selected.size) { alert('在庫表で卸す在庫を選んでください'); return; }
-    E.wholesale(st, Array.from(selected));
-    selected.clear();
-    render();
-  };
-  $('btnSim').onclick = () => {
-    $('simPanel').style.display = '';
-    $('simOut').textContent = '実行中…';
-    setTimeout(() => { $('simOut').textContent = runSim(100); }, 20);
-  };
-
-  // ブラウザ内での簡易シミュレーション（node src/sim.js と同じ指標）
-  function runSim(n) {
-    const games = [];
-    for (let i = 0; i < n; i++) {
-      const g = E.createGame({ seed: 1000 + i });
-      P.playAll(g);
-      games.push(g);
-    }
-    const med = a => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2); };
-    const L = [`${n}回の平均的な推移`, '週    生存   残高(中央値)     登録  所持'];
-    for (const w of [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]) {
-      const s = games.map(g => g.history.weeks[w - 1]).filter(Boolean);
-      if (!s.length) { L.push(`${String(w).padStart(2)}週   0回`); continue; }
-      L.push(`${String(w).padStart(2)}週  ${String(s.length).padStart(3)}回  ${yen(med(s.map(x => x.cash))).padStart(13)}  `
-        + `${String(med(s.map(x => x.registered))).padStart(4)}  ${String(med(s.map(x => x.owned))).padStart(4)}`);
-    }
-    const endings = {};
-    for (const g of games) endings[g.ending] = (endings[g.ending] || 0) + 1;
-    const fin = games.map(g => g.result || E.stats(g));
-    L.push('');
-    L.push('エンド分布: ' + Object.entries(endings).map(([k, v]) =>
-      `${{ true: '真', normal: 'ノーマル', incomplete: '未達', bad: 'バッド' }[k] || k} ${v}回`).join(' / '));
-    L.push(`最終所持: 中央値 ${med(fin.map(f => f.owned))}本 / 最高 ${Math.max(...fin.map(f => f.owned))}本`);
-    return L.join('\n');
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(work)); } catch (err) { /* 保存できなくても編集は続く */ }
   }
 
-  newGame();
+  $('q').addEventListener('input', ev => { query = ev.target.value; renderIndex(); });
+  $('onlyEdited').addEventListener('change', ev => { onlyEdited = ev.target.checked; renderIndex(); });
+  $('btnRevertAll').addEventListener('click', () => {
+    if (!confirm('この机での変更を全部捨てて、元の文章に戻します。よろしいですか？')) return;
+    work = clone(ORIGINAL);
+    save(); render();
+  });
+
+  render();
+  window.ScriptDesk = { work, ORIGINAL, checkRegular, checkTitle, dirtyCount };
 })();
 
 </script>
