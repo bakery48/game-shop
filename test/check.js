@@ -409,6 +409,8 @@ check('常連の守備範囲が混ざっていない', () => {
   const owns = [
     { id: 'urushibara', ng: /値付け|値段|相場|いくらで売/, why: '値段の話は蜷川と大町の持ち札' },
     { id: 'yuta', ng: /現存数|開発陣|仮タイトル/, why: 'うんちくは漆原の持ち札' },
+    // 蜷川は遊んでいた側。うんちくを持たせると漆原と溶ける
+    { id: 'ninagawa', ng: /開発陣|仮タイトル|ウソ技|型番|初期ロット/, why: 'うんちくは漆原の持ち札' },
     // 黒沢と蜷川は同年代で寡黙なので、持ち札が混ざると見分けが付かなくなる
     { id: 'kurosawa', ng: /状態|現存数|相場|日焼け|カビ|プレミア|値打ち/, why: 'モノの価値は蜷川の持ち札' },
   ];
@@ -432,14 +434,21 @@ check('黒沢と蜷川が見分けられる', () => {
   // 蜷川は集める側で、いまも動いている。冷たいだけにしないための可愛げが要る
   const warm = by.ninagawa.lines.filter(l => /置いていく|買ってきた|見てるよ|それきりだよ|じゃ、私はこれで/.test(l));
   assert(warm.length >= 3, `蜷川の可愛げが${warm.length}本しかない`);
-  // 集める理由は「数えるため」。ここが抜けると、ただの無機的なコレクターに戻る
-  const why = by.ninagawa.lines.filter(l => /数え/.test(l));
-  assert(why.length >= 3, `「数える」動機が${why.length}本しかない`);
-  assert(by.ninagawa.lines.some(l => /出荷本数/.test(l)),
-    '出荷本数（誰も正確には知らない数）に触れていない');
+  // 集める理由は「あの頃をかき集めている」。ここが抜けると無機的なコレクターに戻る
+  const why = by.ninagawa.lines.filter(l => /当時|あの頃/.test(l));
+  assert(why.length >= 3, `思い出の動機が${why.length}本しかない`);
+  // 遊んでいた側なので、実体験がある（漆原には言わせられない札）
+  assert(by.ninagawa.lines.some(l => /並んだ/.test(l)), '当時の実体験（並んだ話）が無い');
+  // かつ、オタク側でないことを自分で断っている。ここが漆原との分かれ目
+  assert(by.ninagawa.lines.some(l => /遊んでた側|遊んでいた側/.test(l)),
+    '「遊んでいた側」だと名乗る行が無い');
+  // 漆原は後追いで、入口が知識。実体験ではなく資料の語彙で喋る
+  const read = by.urushibara.lines.filter(
+    l => /雑誌|仮タイトル|開発|資料|型番|ウソ技|初期ロット|初期型|後期型/.test(l));
+  assert(read.length >= 4, `漆原の知識欲が${read.length}本しかない`);
   // 黒沢は作った側。モノの価値を語らせない（上の「守備範囲」でも見ている）
   return `${by.kurosawa.calls}（黒沢）／${by.ninagawa.calls}（蜷川）`
-    + `・可愛げ${warm.length}本・「数える」${why.length}本`;
+    + `・可愛げ${warm.length}本／体験${why.length}本・漆原の知識${read.length}本`;
 });
 check('スーエレを知らない世代が実体験を語っていない', () => {
   // ゆうた（2016年生）が「当時」を語るような事故を防ぐ。
