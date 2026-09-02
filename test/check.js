@@ -430,10 +430,16 @@ check('黒沢と蜷川が見分けられる', () => {
   assert(by.kurosawa.calls !== by.ninagawa.calls,
     `どちらも「${by.kurosawa.calls}」と呼んでいる`);
   // 蜷川は集める側で、いまも動いている。冷たいだけにしないための可愛げが要る
-  const warm = by.ninagawa.lines.filter(l => /置いていく|買ってきた|見てるよ|訊かないでくれ|じゃ、私はこれで/.test(l));
+  const warm = by.ninagawa.lines.filter(l => /置いていく|買ってきた|見てるよ|それきりだよ|じゃ、私はこれで/.test(l));
   assert(warm.length >= 3, `蜷川の可愛げが${warm.length}本しかない`);
+  // 集める理由は「数えるため」。ここが抜けると、ただの無機的なコレクターに戻る
+  const why = by.ninagawa.lines.filter(l => /数え/.test(l));
+  assert(why.length >= 3, `「数える」動機が${why.length}本しかない`);
+  assert(by.ninagawa.lines.some(l => /出荷本数/.test(l)),
+    '出荷本数（誰も正確には知らない数）に触れていない');
   // 黒沢は作った側。モノの価値を語らせない（上の「守備範囲」でも見ている）
-  return `${by.kurosawa.calls}（黒沢）／${by.ninagawa.calls}（蜷川）・可愛げ${warm.length}本`;
+  return `${by.kurosawa.calls}（黒沢）／${by.ninagawa.calls}（蜷川）`
+    + `・可愛げ${warm.length}本・「数える」${why.length}本`;
 });
 check('スーエレを知らない世代が実体験を語っていない', () => {
   // ゆうた（2016年生）が「当時」を語るような事故を防ぐ。
