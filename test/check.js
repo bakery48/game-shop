@@ -212,6 +212,16 @@ check('叔父の4本がすべてエスニック絡み', () => {
   for (const m of selfMakers) assert(!m.includes('エスニック'), `主人公が${m}に関わっている`);
   return `叔父=エスニック4本 / 主人公=${selfMakers.size}社を渡り歩き`;
 });
+check('data/*.json が正準形になっている', () => {
+  // 台本机の書き出しは JSON.stringify(_, null, 2) + 改行。ここがずれると、
+  // 貼り戻したときに関係のない差分が混ざる（Pythonで書き直すと崩れた）
+  for (const f of ['software.json', 'regulars.json']) {
+    const raw = fs.readFileSync(path.join(root, 'data', f), 'utf8');
+    const want = JSON.stringify(JSON.parse(raw), null, 2) + '\n';
+    assert(raw === want, `${f} が正準形でない（${raw.length} / ${want.length}字）`);
+  }
+  return 'JSON.stringify(_, null, 2) + 改行';
+});
 check('regulars.json のイベント数がしきい値と一致', () => {
   const n = rg.visitThresholds.length;
   for (const r of rg.regulars) assert(r.events.length === n, `${r.name} は${r.events.length}件`);
@@ -399,6 +409,8 @@ check('常連の守備範囲が混ざっていない', () => {
   const owns = [
     { id: 'urushibara', ng: /値付け|値段|相場|いくらで売/, why: '値段の話は蜷川と大町の持ち札' },
     { id: 'yuta', ng: /現存数|開発陣|仮タイトル/, why: 'うんちくは漆原の持ち札' },
+    // 黒沢と蜷川は同年代で寡黙なので、持ち札が混ざると見分けが付かなくなる
+    { id: 'kurosawa', ng: /状態|現存数|相場|日焼け|カビ|プレミア|値打ち/, why: 'モノの価値は蜷川の持ち札' },
   ];
   for (const o of owns) {
     const r = rg.regulars.find(x => x.id === o.id);
@@ -410,6 +422,18 @@ check('常連の守備範囲が混ざっていない', () => {
     }
   }
   return owns.map(o => o.id).join('・');
+});
+check('黒沢と蜷川が見分けられる', () => {
+  // 同年代・寡黙・喪失の影が重なっているので、せめて呼び方と持ち札は分ける
+  const by = {};
+  for (const r of rg.regulars) by[r.id] = r;
+  assert(by.kurosawa.calls !== by.ninagawa.calls,
+    `どちらも「${by.kurosawa.calls}」と呼んでいる`);
+  // 蜷川は集める側で、いまも動いている。冷たいだけにしないための可愛げが要る
+  const warm = by.ninagawa.lines.filter(l => /置いていく|買ってきた|見てるよ|訊かないでくれ|じゃ、私はこれで/.test(l));
+  assert(warm.length >= 3, `蜷川の可愛げが${warm.length}本しかない`);
+  // 黒沢は作った側。モノの価値を語らせない（上の「守備範囲」でも見ている）
+  return `${by.kurosawa.calls}（黒沢）／${by.ninagawa.calls}（蜷川）・可愛げ${warm.length}本`;
 });
 check('スーエレを知らない世代が実体験を語っていない', () => {
   // ゆうた（2016年生）が「当時」を語るような事故を防ぐ。
