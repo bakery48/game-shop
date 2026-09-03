@@ -673,6 +673,78 @@ check('カタログは seed によらず同じ', () => {
   assert(a === b, 'seed でカタログが変わっている');
 });
 
+section('メッセージ窓');
+const BOX = require(path.join(root, 'src/textbox.js'));
+
+/** メッセージ窓に出る文章（図鑑の説明は巻物なので入れない） */
+function boxTexts() {
+  const out = [];
+  for (const r of rg.regulars) {
+    (r.lines || []).forEach((l, i) => out.push([`${r.name} セリフ${i + 1}`, l]));
+    (r.events || []).forEach((e, i) => {
+      out.push([`${r.name} イベント${i + 1}`, e.text]);
+      if (e.skillKnown) out.push([`${r.name} イベント${i + 1}(習得済)`, e.skillKnown.text]);
+    });
+  }
+  for (const k of Object.keys(sw.lore.reveals)) {
+    if (k !== '$comment') out.push([`種明かし(${k})`, sw.lore.reveals[k].text]);
+  }
+  return out;
+}
+
+check('組版が禁則を守る', () => {
+  // 行頭に句読点や閉じ括弧が来ない・行末に開き括弧が来ない・行が幅を超えない
+  let lines = 0;
+  for (const [who, t] of boxTexts()) {
+    for (const page of BOX.paginate(t)) {
+      for (const line of page) {
+        if (line === '') continue;
+        lines++;
+        assert(!/^[。、）」』・ーっゃゅょ]/.test(line), `${who}: 行頭が「${line[0]}」`);
+        assert(!/[（「『]$/.test(line), `${who}: 行末が「${line.slice(-1)}」`);
+        // ぶら下げるぶんだけ1字はみ出してよい
+        const w = BOX.width(line);
+        assert(w <= BOX.WIDTH + 1, `${who}: ${w}字の行がある — ${line}`);
+      }
+    }
+  }
+  return `${lines}行を確認`;
+});
+check('組版で文字が落ちも増えもしない', () => {
+  for (const [who, t] of boxTexts()) {
+    const got = BOX.paginate(t).map(p => p.join('')).join('');
+    assert(got === t.replace(/\n+/g, ''), `${who}: 組んだら本文が変わった`);
+  }
+  return `${boxTexts().length}本`;
+});
+check('台詞が地の文と同じページで始まらない', () => {
+  // 何ページも続く長台詞は普通だが、その頭が地の文と同居すると誰の声か分からない
+  for (const [who, t] of boxTexts()) {
+    for (const f of BOX.faults(t)) {
+      assert(f.kind !== 'quote', `${who} ${f.page}ページ目: ${f.note} — ${f.text}`);
+    }
+  }
+  return '8人ぶん';
+});
+check('文の途中で改ページされない', () => {
+  // ▼が助詞の手前で入ると読みが切れる。長すぎる文はここで見つかる
+  for (const [who, t] of boxTexts()) {
+    for (const f of BOX.faults(t)) {
+      assert(f.kind !== 'cut', `${who} ${f.page}ページ目: ${f.note} — ${f.text}`);
+    }
+  }
+  const pages = boxTexts().map(([, t]) => BOX.paginate(t).length);
+  return `最長${Math.max(...pages)}ページ / 平均${(pages.reduce((a, b) => a + b) / pages.length).toFixed(1)}ページ`;
+});
+check('開店の一言もメッセージ窓に収まる', () => {
+  const st = E.createGame({ seed: 1 });
+  const first = st.log[st.log.length - 1] || st.log[0];
+  const text = (st.log.find(l => l.kind === 'start') || first).text;
+  const bad = BOX.faults(text);
+  assert(!bad.length, bad[0] && `${bad[0].page}ページ目: ${bad[0].note}`);
+  return `${BOX.paginate(text).length}ページ`;
+});
+
 // ---------------- 4. 通し実行と不変条件 ----------------
 section('通し実行');
 const P = require(path.join(root, 'src/policy.js'));

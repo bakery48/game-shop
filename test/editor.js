@@ -82,6 +82,31 @@ const UNDO = "[...document.querySelectorAll('#main .f.edited button')].find(x =>
   }, UNDO);
   check('呼び方の混在が見つかる', /店長/.test(call) && /違反/.test(call), call.slice(0, 44));
 
+  // メッセージ窓の下見。24字×2行に組んだ姿がその場で見えること
+  const box = await page.evaluate(() => {
+    const first = document.querySelectorAll('#main .box')[0];
+    const pages = first.querySelectorAll('.pg').length;
+    const line = first.querySelector('.pg .txt div').textContent;
+    return { pages, line, mark: first.querySelector('.pg .mark').textContent };
+  });
+  check('セリフに窓の下見が出る', box.pages >= 1 && box.line.length > 0,
+    `${box.pages}ページ / ${box.line}`);
+  check('下見の行が24字に収まる', box.line.length <= 25, `${box.line.length}字`);
+
+  const warn = await page.evaluate(u => {
+    const ta = document.querySelectorAll('#main textarea')[2];
+    // 1ページに収まらない一文。文の途中で送られるはず
+    ta.value = 'あ'.repeat(60) + '。';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    const t = document.querySelector('#main .box .why');
+    const bad = document.querySelectorAll('#main .box .pg.bad').length;
+    const out = { why: t ? t.textContent : '', bad };
+    eval(u).click();
+    return out;
+  }, UNDO);
+  check('長すぎる一文が下見で咎められる', /ページ/.test(warn.why) && warn.bad > 0,
+    `${warn.bad}ページに印 / ${warn.why}`);
+
   const soft = await page.evaluate(() => {
     [...document.querySelectorAll('#tabs button')].find(x => x.textContent === 'ソフト').click();
     const all = document.querySelectorAll('#index button').length;
@@ -92,6 +117,8 @@ const UNDO = "[...document.querySelectorAll('#main .f.edited button')].find(x =>
     return { all, few };
   });
   check('ソフトが全部並ぶ', soft.all === 151, `${soft.all}本`);
+  const noBox = await page.evaluate(() => document.querySelectorAll('#main .box').length);
+  check('図鑑の説明には窓の下見が出ない', noBox === 0, `${noBox}件出ている`);
   check('絞り込みが効く', soft.few > 0 && soft.few < 20, `ドラゴン → ${soft.few}本`);
 
   const sales = await page.evaluate(u => {

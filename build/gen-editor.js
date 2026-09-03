@@ -7,7 +7,8 @@ const read = p => fs.readFileSync(path.join(root, p), 'utf8');
 
 const data = `<script>\nwindow.EditorData = {\n  software: ${read('data/software.json').trim()},\n`
   + `  regulars: ${read('data/regulars.json').trim()}\n};\n</script>`;
-const app = '<script>\n' + read('src/editor.js').replace(/<\/script>/gi, '<\\/script>') + '\n</script>';
+const script = f => '<script>\n' + read(f).replace(/<\/script>/gi, '<\\/script>') + '\n</script>';
+const app = script('src/textbox.js') + '\n' + script('src/editor.js');
 
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 const out = path.join(root, 'dist', 'text-editor.html');

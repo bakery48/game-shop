@@ -46,12 +46,12 @@
       fields.push({ file: 'regulars', path: `regulars.${i}.title`, name: '素性', short: true });
       fields.push({ file: 'regulars', path: `regulars.${i}.calls`, name: '店主の呼び方', short: true });
       (r.lines || []).forEach((_, j) => fields.push({
-        file: 'regulars', path: `regulars.${i}.lines.${j}`, name: `セリフ ${j + 1}`,
+        file: 'regulars', path: `regulars.${i}.lines.${j}`, name: `セリフ ${j + 1}`, box: true,
       }));
       (r.events || []).forEach((e, j) => {
-        fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.text`,
+        fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.text`, box: true,
           name: `${ORIGINAL.regulars.visitThresholds[j]}回目（${e.type}）` });
-        if (e.skillKnown) fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.skillKnown.text`,
+        if (e.skillKnown) fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.skillKnown.text`, box: true,
           name: `${ORIGINAL.regulars.visitThresholds[j]}回目（習得済みのとき）` });
       });
       fields.push({ file: 'regulars', path: `regulars.${i}.ageNote`, name: '設定メモ（ゲームには出ない）' });
@@ -77,7 +77,7 @@
     const fields = [];
     for (const k of Object.keys(rev)) {
       fields.push({ file: 'software', path: `lore.reveals.${k}.title`, name: `${k}：見出し`, short: true });
-      fields.push({ file: 'software', path: `lore.reveals.${k}.text`, name: `${k}：本文` });
+      fields.push({ file: 'software', path: `lore.reveals.${k}.text`, name: `${k}：本文`, box: true });
     }
     fields.push({ file: 'software', path: 'lore.uncle.note', name: '叔父の設定メモ' });
     fields.push({ file: 'software', path: 'lore.self.note', name: '主人公の設定メモ' });
@@ -245,6 +245,29 @@
     line.appendChild(w);
     line.appendChild(undo);
 
+    // メッセージ窓の下見。本番は24字×2行で、▼を押すと次のページへ送られる
+    const box = f.box ? el('div', 'box') : null;
+    function preview() {
+      if (!box) return;
+      box.innerHTML = '';
+      const pages = TextBox.paginate(ta.value);
+      const bad = {};
+      for (const x of TextBox.faults(ta.value)) bad[x.page] = x;
+      pages.forEach((p, i) => {
+        const pg = el('div', 'pg' + (bad[i + 1] ? ' bad' : ''));
+        pg.appendChild(el('span', 'no', i + 1));
+        const body = el('div', 'txt');
+        body.appendChild(el('div', null, p[0] || ''));
+        body.appendChild(el('div', null, p[1] || ''));
+        pg.appendChild(body);
+        pg.appendChild(el('span', 'mark', i === pages.length - 1 ? '□' : '▼'));
+        box.appendChild(pg);
+        if (bad[i + 1]) box.appendChild(el('div', 'why', '↑ ' + bad[i + 1].note));
+      });
+      const n = pages.length;
+      count.textContent = ta.value.length + '字 / ' + n + 'ページ';
+    }
+
     const grow = () => { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 4) + 'px'; };
     function sync() {
       count.textContent = ta.value.length + '字';
@@ -252,6 +275,7 @@
       row.classList.toggle('edited', dirty);
       line.hidden = !dirty;
       if (dirty) w.textContent = '元: ' + was(f.file, f.path);
+      preview();
       grow();
     }
     ta.addEventListener('input', () => {
@@ -261,6 +285,7 @@
     });
     row.appendChild(ta);
     row.appendChild(line);
+    if (box) row.appendChild(box);
     sync();
     setTimeout(grow, 0);
     return row;

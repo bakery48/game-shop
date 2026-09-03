@@ -115,6 +115,21 @@ textarea {
 .f.edited textarea { border-color:var(--gold); }
 .was { font-size:11.5px; color:var(--sub); border-left:2px solid var(--rule); padding-left:8px; }
 
+/* ── メッセージ窓の下見（本番は24字×2行、▼で改ページ） ────────── */
+.box { margin-top:2px; overflow-x:auto; display:flex; flex-direction:column; gap:2px; }
+.pg {
+  display:flex; gap:6px; align-items:center; width:max-content;
+  background:var(--sunk); border:1px solid var(--rule-soft); padding:3px 6px;
+}
+.pg .no { font-size:10px; color:var(--sub); min-width:1.4em; text-align:right; }
+.pg .txt {
+  font-family:"DotGothic16",monospace; font-size:13px; line-height:1.6; letter-spacing:0;
+  white-space:pre; width:24em; flex:0 0 auto;
+}
+.pg .mark { font-size:11px; color:var(--accent); }
+.pg.bad { border-color:var(--accent); }
+.box .why { font-size:11px; color:var(--accent); padding-left:2.2em; }
+
 /* ── 検査 ───────────────────────────────────────────────── */
 .flag { font-size:11.5px; display:flex; gap:6px; align-items:baseline; }
 .flag b { font-family:"DotGothic16",monospace; font-weight:400; letter-spacing:.08em; }
@@ -2231,7 +2246,7 @@ window.EditorData = {
         "スーエレの本体ってさ、後期型のほうが音がいいって話、知ってる？ うちにあるのは親の初期型なんだけど、『星屑のクロニクル』のあの曲だけ、なんか違うんだよね。動画で聞いたのと。……いや、気のせいかもしんないけどさ。でも一回気になると駄目でさ。",
         "今日ヒマ？ あ、仕事か。そうだよね。俺はまあ……うん。ヒマなんだけどね。いや働けって話なんだけどさ、母親にも毎日言われてるし。でもこの棚見てると時間溶けるんだよね。あー、この背表紙の並び好きだわ。",
         "『カンフー・パンダの大冒険』、これ抱き合わせのやつでしょ。うちにもあるよ、たぶんどっかに。親が押し付けられたらしくてさ。これも買わないと『エターナル・ルーン』売らないって言われたって。子供相手にひどくない？ で、三十年経ってこれが五百円。そのオヤジ、今どうしてんのかな。",
-        "店長さんってさ、前は何やってた人なの？ いや詮索とかじゃなくてさ、なんか慣れてるじゃん、こういうの。俺、この手の店って趣味こじらせた人が始めるもんだと思ってたんだけど、なんか手つきがさ……いや、うまく言えないんだけど。……ふうん。まあ人それぞれか。",
+        "店長さんってさ、前は何やってた人なの？ いや詮索とかじゃなくてさ、なんか慣れてるじゃん、こういうの。俺、この手の店って趣味こじらせた人が始めるもんだと思ってたんだけど、なんか手つきがさ。……いや、うまく言えないんだけど。……ふうん。まあ人それぞれか。",
         "店長さんってあんまり喋んないよね。いや、いいんだけどさ。俺が喋りすぎなだけだし。でもたまにさ、こっちの話に「ああ、あれね」って言うじゃん。あれ、絶対分かってるやつの言い方なんだよな。",
         "なあ店長さん、ゲーム作る人ってさ、自分の作ったやつ遊ぶのかな。……なんで急にって顔してる。いや、この棚見ててふと思っただけ。深い意味はないよ。",
         "店長さん、俺さ、昨日ハローワーク行ったんだよ。……いや、前を通っただけなんだけど。でもさ、通っただけでも進歩じゃない？ ……だめ？ だめか。まあそうだよな。",
@@ -2321,6 +2336,215 @@ window.EditorData = {
 <script>
 'use strict';
 /**
+ * メッセージ窓の組版。
+ *
+ * 本番（Godot）では文章を「24字×2行」で1ページ出し、▼で送る。
+ * どこで切れるかは書いたあとにしか分からないので、書く側が確かめられるように
+ * 組版だけをここに切り出してある。プロトタイプの表示には使っていない。
+ *
+ *   const box = require('./textbox');
+ *   box.paginate(text)   // → [[1行目, 2行目], [1行目, 2行目], …]
+ *   box.faults(text)     // → 直したほうがいい箇所
+ *
+ * 文の途中で▼が来ると間が抜けるので、**句点で区切ってから詰める**。
+ * 1文が1ページに収まらないときだけ、文の途中で送る。
+ * 書き手が置ける記号は1つだけ:
+ *
+ *   \n\n  …… ここで必ずページを送る（間を取りたいとき）
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.TextBox = factory();
+}(typeof self !== 'undefined' ? self : this, function () {
+
+  const WIDTH = 24;   // 1行に入る全角の数
+  const LINES = 2;    // 1ページの行数
+
+  // 半角として数える字。本文には数字と『』内の英字が出る
+  const HALF = /[\x20-\x7E｡-ﾟ]/;
+  /** 全角を1、半角を0.5として数えた幅 */
+  function width(s) {
+    let n = 0;
+    for (const c of s) n += HALF.test(c) ? 0.5 : 1;
+    return n;
+  }
+
+  // 行頭に置けない字。句読点も入れてある——ぶら下げが先に走るので、
+  // ここに残るのは「。……」のように続きがあってぶら下げきれなかったときだけ
+  const NO_HEAD = /[。、，．！？）］｝〉》」』】〕・：；…‥ゝゞーぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮ]/;
+  const NO_TAIL = /[（［｛〈《「『【〔]/;                                                    // 行末に置けない
+  const HANG = /[。、，．！？]/;                                                             // ぶら下げてよい
+
+  /** 1行ぶんを切り出して [その行, 残り] を返す */
+  function takeLine(s) {
+    if (width(s) <= WIDTH) return [s, ''];
+    let cut = 0, w = 0;
+    for (const c of s) {
+      const cw = HALF.test(c) ? 0.5 : 1;
+      if (w + cw > WIDTH) break;
+      w += cw; cut += c.length;
+    }
+    while (cut < s.length && HANG.test(s[cut])) cut++;               // ぶら下げ
+    let guard = 0;
+    while (cut > 1 && guard++ < WIDTH) {                             // 追い出し
+      if (cut < s.length && NO_HEAD.test(s[cut])) { cut--; continue; }
+      if (NO_TAIL.test(s[cut - 1])) { cut--; continue; }
+      break;
+    }
+    return [s.slice(0, cut), s.slice(cut)];
+  }
+
+  /** ひと続きの文字列を行の配列にする */
+  function wrap(s) {
+    const out = [];
+    let rest = s;
+    while (rest !== '') { const [line, r] = takeLine(rest); out.push(line); rest = r; }
+    return out.length ? out : [''];
+  }
+
+  /**
+   * 本文を「地の文」と「台詞（鉤括弧の中）」に割る。
+   * 台詞は途中で切ると誰の言葉か分からなくなるので、ひと塊として扱う
+   */
+  function segments(s) {
+    const out = [];
+    let buf = '', depth = 0;
+    for (const c of Array.from(s)) {
+      if (c === '「') {
+        if (depth === 0 && buf) { out.push({ quote: false, text: buf }); buf = ''; }
+        depth++;
+      }
+      buf += c;
+      if (c === '」' && depth > 0) {
+        depth--;
+        if (depth === 0) { out.push({ quote: true, text: buf }); buf = ''; }
+      }
+    }
+    if (buf) out.push({ quote: depth > 0, text: buf });
+    return out;
+  }
+
+  /**
+   * 文に切る。句点・感嘆符のあとで切り、閉じ括弧はその文に付ける。
+   * 鉤括弧の中では切らない（切ると台詞が途中で送られる）
+   */
+  function sentences(s) {
+    const out = [];
+    for (const seg of segments(s)) {
+      if (seg.quote) { out.push(seg.text); continue; }
+      let buf = '';
+      const chars = Array.from(seg.text);
+      for (let i = 0; i < chars.length; i++) {
+        buf += chars[i];
+        if (!/[。！？]/.test(chars[i])) continue;
+        let j = i + 1;
+        while (j < chars.length && /[』）！？…]/.test(chars[j])) { buf += chars[j]; j++; }
+        i = j - 1;
+        out.push(buf); buf = '';
+      }
+      if (buf) out.push(buf);
+    }
+    // 「……」って。 のように、行頭に置けない字で始まる切れ端は前にくっつける。
+    // 離すとページの頭が「って」から始まってしまう
+    const merged = [];
+    for (const u of out) {
+      if (merged.length && NO_HEAD.test(u[0])) merged[merged.length - 1] += u;
+      else merged.push(u);
+    }
+    return merged;
+  }
+
+  /**
+   * 文や台詞を、順に足しては2行で送る。
+   * 1つで2行に収まらないものは中で割れるので、その継ぎ目に印を付ける
+   */
+  function pack(units) {
+    const pages = [];
+    let held = '', head = true;          // head: このページが文の頭から始まるか
+    const flush = () => {
+      if (held === '') return;
+      const lines = wrap(held);
+      for (let i = 0; i < lines.length; i += LINES) {
+        pages.push({ lines: lines.slice(i, i + LINES), head: i === 0 ? head : false });
+      }
+      held = '';
+    };
+    // 閉じない台詞（何ページも続く長台詞の頭）は、地の文と同じページに置かない。
+    // 置くと、そのページだけ誰の声か分からなくなる
+    const opens = u => u.startsWith('「') && !u.includes('」');
+    for (const u of units) {
+      if (held === '') { held = u; head = true; continue; }
+      if (!opens(u) && wrap(held + u).length <= LINES) held += u;
+      else { flush(); held = u; head = true; }
+    }
+    flush();
+    return pages;
+  }
+
+  /** 1ページに収まらない台詞を、中の句点で割ってから詰め直す */
+  function split(s) {
+    if (wrap(s).length <= LINES) return [s];
+    const out = [];
+    let buf = '';
+    const chars = Array.from(s);
+    for (let i = 0; i < chars.length; i++) {
+      buf += chars[i];
+      if (/[。！？]/.test(chars[i])) {
+        let j = i + 1;
+        while (j < chars.length && /[』）！？…　 ]/.test(chars[j])) { buf += chars[j]; j++; }
+        i = j - 1;
+        out.push(buf); buf = '';
+      }
+    }
+    if (buf) out.push(buf);
+    return out;
+  }
+
+  /** 本文をページの配列（1ページ = 行の配列）にする */
+  function pages(text) {
+    const out = [];
+    for (const block of String(text).split(/\n[ \t]*\n/)) {
+      const units = [];
+      for (const u of sentences(block.replace(/\n/g, ''))) units.push(...split(u));
+      out.push(...pack(units));
+    }
+    return out.length ? out : [{ lines: [''], head: true }];
+  }
+
+  function paginate(text) { return pages(text).map(p => p.lines); }
+
+  /**
+   * 組んでみて具合の悪いところを挙げる。書いた文章を直すための道具で、
+   * 「読めない」ではなく「間が抜けて見える」を拾う。
+   *
+   *   cut   … 文の途中で▼が入る。次のページが助詞から始まって読みが切れる
+   *   quote … 地の文と、閉じない台詞が同じページに乗る。誰の声か分からなくなる
+   *
+   * 台詞が何ページも続くのは普通なので、それは咎めない
+   */
+  function faults(text) {
+    const ps = pages(text);
+    const bad = [];
+    ps.forEach((p, i) => {
+      if (i > 0 && !p.head) {
+        bad.push({ kind: 'cut', page: i + 1, note: '文の途中でページが送られる', text: p.lines.join('') });
+      }
+      const s = p.lines.join('');
+      const at = s.indexOf('「');
+      if (at > 0 && !s.slice(at).includes('」') && i < ps.length - 1) {
+        bad.push({ kind: 'quote', page: i + 1, note: '地の文の途中から台詞が始まって、そのページで閉じない', text: s });
+      }
+    });
+    return bad;
+  }
+
+  return { WIDTH, LINES, width, wrap, segments, sentences, paginate, faults };
+}));
+
+</script>
+<script>
+'use strict';
+/**
  * 台本机 — ゲーム中の文章を直して、data/*.json に書き戻すための道具。
  * 本体（engine/ui）とは独立していて、読むのは data だけ。
  *
@@ -2367,12 +2591,12 @@ window.EditorData = {
       fields.push({ file: 'regulars', path: `regulars.${i}.title`, name: '素性', short: true });
       fields.push({ file: 'regulars', path: `regulars.${i}.calls`, name: '店主の呼び方', short: true });
       (r.lines || []).forEach((_, j) => fields.push({
-        file: 'regulars', path: `regulars.${i}.lines.${j}`, name: `セリフ ${j + 1}`,
+        file: 'regulars', path: `regulars.${i}.lines.${j}`, name: `セリフ ${j + 1}`, box: true,
       }));
       (r.events || []).forEach((e, j) => {
-        fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.text`,
+        fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.text`, box: true,
           name: `${ORIGINAL.regulars.visitThresholds[j]}回目（${e.type}）` });
-        if (e.skillKnown) fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.skillKnown.text`,
+        if (e.skillKnown) fields.push({ file: 'regulars', path: `regulars.${i}.events.${j}.skillKnown.text`, box: true,
           name: `${ORIGINAL.regulars.visitThresholds[j]}回目（習得済みのとき）` });
       });
       fields.push({ file: 'regulars', path: `regulars.${i}.ageNote`, name: '設定メモ（ゲームには出ない）' });
@@ -2398,7 +2622,7 @@ window.EditorData = {
     const fields = [];
     for (const k of Object.keys(rev)) {
       fields.push({ file: 'software', path: `lore.reveals.${k}.title`, name: `${k}：見出し`, short: true });
-      fields.push({ file: 'software', path: `lore.reveals.${k}.text`, name: `${k}：本文` });
+      fields.push({ file: 'software', path: `lore.reveals.${k}.text`, name: `${k}：本文`, box: true });
     }
     fields.push({ file: 'software', path: 'lore.uncle.note', name: '叔父の設定メモ' });
     fields.push({ file: 'software', path: 'lore.self.note', name: '主人公の設定メモ' });
@@ -2566,6 +2790,29 @@ window.EditorData = {
     line.appendChild(w);
     line.appendChild(undo);
 
+    // メッセージ窓の下見。本番は24字×2行で、▼を押すと次のページへ送られる
+    const box = f.box ? el('div', 'box') : null;
+    function preview() {
+      if (!box) return;
+      box.innerHTML = '';
+      const pages = TextBox.paginate(ta.value);
+      const bad = {};
+      for (const x of TextBox.faults(ta.value)) bad[x.page] = x;
+      pages.forEach((p, i) => {
+        const pg = el('div', 'pg' + (bad[i + 1] ? ' bad' : ''));
+        pg.appendChild(el('span', 'no', i + 1));
+        const body = el('div', 'txt');
+        body.appendChild(el('div', null, p[0] || ''));
+        body.appendChild(el('div', null, p[1] || ''));
+        pg.appendChild(body);
+        pg.appendChild(el('span', 'mark', i === pages.length - 1 ? '□' : '▼'));
+        box.appendChild(pg);
+        if (bad[i + 1]) box.appendChild(el('div', 'why', '↑ ' + bad[i + 1].note));
+      });
+      const n = pages.length;
+      count.textContent = ta.value.length + '字 / ' + n + 'ページ';
+    }
+
     const grow = () => { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 4) + 'px'; };
     function sync() {
       count.textContent = ta.value.length + '字';
@@ -2573,6 +2820,7 @@ window.EditorData = {
       row.classList.toggle('edited', dirty);
       line.hidden = !dirty;
       if (dirty) w.textContent = '元: ' + was(f.file, f.path);
+      preview();
       grow();
     }
     ta.addEventListener('input', () => {
@@ -2582,6 +2830,7 @@ window.EditorData = {
     });
     row.appendChild(ta);
     row.appendChild(line);
+    if (box) row.appendChild(box);
     sync();
     setTimeout(grow, 0);
     return row;

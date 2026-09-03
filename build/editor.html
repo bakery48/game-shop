@@ -115,6 +115,21 @@ textarea {
 .f.edited textarea { border-color:var(--gold); }
 .was { font-size:11.5px; color:var(--sub); border-left:2px solid var(--rule); padding-left:8px; }
 
+/* ── メッセージ窓の下見（本番は24字×2行、▼で改ページ） ────────── */
+.box { margin-top:2px; overflow-x:auto; display:flex; flex-direction:column; gap:2px; }
+.pg {
+  display:flex; gap:6px; align-items:center; width:max-content;
+  background:var(--sunk); border:1px solid var(--rule-soft); padding:3px 6px;
+}
+.pg .no { font-size:10px; color:var(--sub); min-width:1.4em; text-align:right; }
+.pg .txt {
+  font-family:"DotGothic16",monospace; font-size:13px; line-height:1.6; letter-spacing:0;
+  white-space:pre; width:24em; flex:0 0 auto;
+}
+.pg .mark { font-size:11px; color:var(--accent); }
+.pg.bad { border-color:var(--accent); }
+.box .why { font-size:11px; color:var(--accent); padding-left:2.2em; }
+
 /* ── 検査 ───────────────────────────────────────────────── */
 .flag { font-size:11.5px; display:flex; gap:6px; align-items:baseline; }
 .flag b { font-family:"DotGothic16",monospace; font-weight:400; letter-spacing:.08em; }
